@@ -466,7 +466,7 @@ classdef FourierAnalysisApp < handle
                     'Color', [0.2 0.45 0.75], 'LineWidth', 1);
             end
             title(app.SpectrumAxes, app.text('spectrum_result_title', ...
-                result.fundamentalFrequency, result.fundamentalRms, result.thd * 100));
+                result.fundamentalFrequency, result.fundamentalMagnitude, result.thd * 100));
             xlabel(app.SpectrumAxes, app.text('freq_xlabel'));
             ylabel(app.SpectrumAxes, app.text('percent_ylabel'));
             xlim(app.SpectrumAxes, [0 max(result.displayFreqs)]);
@@ -502,7 +502,6 @@ classdef FourierAnalysisApp < handle
                 app.text('result_n'), result.N
                 app.text('result_fund_freq'), result.fundamentalFrequency
                 app.text('result_fund_mag'), result.fundamentalMagnitude
-                app.text('result_fund_rms'), result.fundamentalRms
                 app.text('result_thd'), result.thd * 100
                 };
         end
@@ -679,7 +678,7 @@ classdef FourierAnalysisApp < handle
                 case 'legend_window'
                     template = 'FFT 窗口';
                 case 'spectrum_result_title'
-                    template = '基波 %.3g Hz RMS = %.4g，THD = %.3f%%';
+                    template = '基波 %.3g Hz = %.4g，THD = %.3f%%';
                 case 'result_fs'
                     template = '采样频率 fs (Hz)';
                 case 'result_dt'
@@ -691,9 +690,7 @@ classdef FourierAnalysisApp < handle
                 case 'result_fund_freq'
                     template = '基波频率 (Hz)';
                 case 'result_fund_mag'
-                    template = '基波幅值（峰值）';
-                case 'result_fund_rms'
-                    template = '基波有效值 RMS';
+                    template = '基波幅值';
                 case 'result_thd'
                     template = 'THD (%)';
                 otherwise
@@ -800,7 +797,7 @@ classdef FourierAnalysisApp < handle
                 case 'legend_window'
                     template = 'FFT Window';
                 case 'spectrum_result_title'
-                    template = 'Fundamental %.3g Hz RMS = %.4g, THD = %.3f%%';
+                    template = 'Fundamental %.3g Hz = %.4g, THD = %.3f%%';
                 case 'result_fs'
                     template = 'Sampling frequency fs (Hz)';
                 case 'result_dt'
@@ -812,9 +809,7 @@ classdef FourierAnalysisApp < handle
                 case 'result_fund_freq'
                     template = 'Fundamental frequency (Hz)';
                 case 'result_fund_mag'
-                    template = 'Fundamental magnitude (peak)';
-                case 'result_fund_rms'
-                    template = 'Fundamental RMS';
+                    template = 'Fundamental magnitude';
                 case 'result_thd'
                     template = 'THD (%)';
                 otherwise

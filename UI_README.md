@@ -96,7 +96,7 @@ THD 计算采用 RMS 定义：
 THD = sqrt(sum(Vh_rms.^2)) / V1_rms
 ```
 
-其中 `V1_rms` 是基波有效值，`Vh_rms` 是 2 次及以上整数谐波的有效值。界面频谱使用单边谱峰值显示，但 THD 内部会转换为 RMS；由于同一正弦分量的 `RMS = peak / sqrt(2)`，用同一套峰值比值和 RMS 比值在数值上等价。
+其中 `V1_rms` 是基波有效值，`Vh_rms` 是 2 次及以上整数谐波的有效值。界面频谱和结果表显示单边谱幅值；THD 内部按 RMS 定义计算。由于同一正弦分量的 `RMS = amplitude / sqrt(2)`，同一批谐波用幅值比值和 RMS 比值在数值上等价。
 
 点击“导出结果到工作区 / Export Result to Workspace”后，结果会保存为 MATLAB 工作区变量：
 
