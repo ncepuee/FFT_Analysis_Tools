@@ -1,0 +1,18 @@
+# MATLAB generated files
+*.asv
+*.autosave
+*.mex*
+*.slxc
+*.slx.r*
+codegen/
+
+# Simulink
+slprj/
+
+# Data files (large binaries)
+*.mat
+*.zip
+
+# OS
+.DS_Store
+Thumbs.db
