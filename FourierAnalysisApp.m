@@ -6,6 +6,7 @@ classdef FourierAnalysisApp < handle
 
     properties (Access = private)
         Figure
+        ControlGrid
         ControlPanel
         PlotPanel
         LoadButton
@@ -28,6 +29,21 @@ classdef FourierAnalysisApp < handle
         MaxFreqEdit
         AnalyzeButton
         ExportButton
+        ZoomEnableCheckBox
+        ZoomPanel
+        Zoom1StartEdit
+        Zoom1EndEdit
+        Zoom1YMinEdit
+        Zoom1YMaxEdit
+        Zoom2StartEdit
+        Zoom2EndEdit
+        Zoom2YMinEdit
+        Zoom2YMaxEdit
+        Zoom3StartEdit
+        Zoom3EndEdit
+        Zoom3YMinEdit
+        Zoom3YMaxEdit
+        DrawZoomButton
         StatusLabel
         TimeAxes
         SpectrumAxes
@@ -45,6 +61,7 @@ classdef FourierAnalysisApp < handle
         LastStatusKey char = 'select_file'
         LastStatusArgs cell = {}
         PlotDetailMode char = 'fast'
+        ZoomEnabled logical = false
         MaxTimePlotPoints double = 20000
         FineTimePlotPoints double = 200000
         MaxSpectrumBarCount double = 5000
@@ -62,130 +79,151 @@ classdef FourierAnalysisApp < handle
     methods (Access = private)
         function createComponents(app)
             app.Figure = uifigure('Name', app.text('app_title'), ...
-                'Position', [100 100 1120 700]);
+                'Position', [100 80 1240 760]);
 
             mainGrid = uigridlayout(app.Figure, [1 2]);
-            mainGrid.ColumnWidth = {300, '1x'};
+            mainGrid.ColumnWidth = {340, '1x'};
             mainGrid.RowHeight = {'1x'};
             mainGrid.Padding = [12 12 12 12];
             mainGrid.ColumnSpacing = 12;
 
-            app.ControlPanel = uipanel(mainGrid, 'Title', app.text('fft_params'));
+            app.ControlPanel = uipanel(mainGrid, 'Title', app.text('fft_params'), ...
+                'Scrollable', 'on');
             app.ControlPanel.Layout.Row = 1;
             app.ControlPanel.Layout.Column = 1;
 
-            controlGrid = uigridlayout(app.ControlPanel, [17 2]);
-            controlGrid.ColumnWidth = {95, '1x'};
-            controlGrid.RowHeight = {34, 28, 34, 34, 34, 34, 34, 34, 34, 34, 34, 34, '1x', 34, 34, 24, 24};
-            controlGrid.Padding = [12 12 12 12];
-            controlGrid.RowSpacing = 8;
+            app.ControlGrid = uigridlayout(app.ControlPanel, [17 2]);
+            app.ControlGrid.ColumnWidth = {95, '1x'};
+            app.ControlGrid.RowHeight = {34, 28, 34, 34, 34, 34, 34, 34, 34, 34, 34, 34, 120, 34, 0, 0, 52};
+            app.ControlGrid.Padding = [12 12 12 12];
+            app.ControlGrid.RowSpacing = 8;
 
-            app.LoadButton = uibutton(controlGrid, 'Text', app.text('load_button'), ...
+            app.LoadButton = uibutton(app.ControlGrid, 'Text', app.text('load_button'), ...
                 'ButtonPushedFcn', @(~, ~) app.loadDataFile());
             app.LoadButton.Layout.Row = 1;
             app.LoadButton.Layout.Column = [1 2];
 
-            app.FileLabel = uilabel(controlGrid, 'Text', app.text('loaded_none'), ...
+            app.FileLabel = uilabel(app.ControlGrid, 'Text', app.text('loaded_none'), ...
                 'WordWrap', 'on');
             app.FileLabel.Layout.Row = 2;
             app.FileLabel.Layout.Column = [1 2];
 
-            app.LanguageLabel = uilabel(controlGrid, 'Text', app.text('language'));
+            app.LanguageLabel = uilabel(app.ControlGrid, 'Text', app.text('language'));
             app.LanguageLabel.Layout.Row = 3;
             app.LanguageLabel.Layout.Column = 1;
 
-            app.LanguageDropDown = uidropdown(controlGrid, ...
+            app.LanguageDropDown = uidropdown(app.ControlGrid, ...
                 'Items', {'中文', 'English'}, ...
                 'Value', '中文', ...
                 'ValueChangedFcn', @(~, ~) app.onLanguageChanged());
             app.LanguageDropDown.Layout.Row = 3;
             app.LanguageDropDown.Layout.Column = 2;
 
-            app.SignalLabel = uilabel(controlGrid, 'Text', app.text('signal_var'));
+            app.SignalLabel = uilabel(app.ControlGrid, 'Text', app.text('signal_var'));
             app.SignalLabel.Layout.Row = 4;
             app.SignalLabel.Layout.Column = 1;
 
-            app.SignalDropDown = uidropdown(controlGrid, ...
+            app.SignalDropDown = uidropdown(app.ControlGrid, ...
                 'Items', {app.text('load_file_first')}, ...
                 'ValueChangedFcn', @(~, ~) app.onSignalChanged());
             app.SignalDropDown.Layout.Row = 4;
             app.SignalDropDown.Layout.Column = 2;
 
-            app.ChannelLabel = uilabel(controlGrid, 'Text', app.text('channel'));
+            app.ChannelLabel = uilabel(app.ControlGrid, 'Text', app.text('channel'));
             app.ChannelLabel.Layout.Row = 5;
             app.ChannelLabel.Layout.Column = 1;
 
-            app.ChannelDropDown = uidropdown(controlGrid, 'Items', {'1'});
+            app.ChannelDropDown = uidropdown(app.ControlGrid, 'Items', {'1'}, ...
+                'ValueChangedFcn', @(~, ~) app.onChannelChanged());
             app.ChannelDropDown.Layout.Row = 5;
             app.ChannelDropDown.Layout.Column = 2;
 
-            app.FundamentalLabel = uilabel(controlGrid, 'Text', app.text('fundamental_hz'));
+            app.FundamentalLabel = uilabel(app.ControlGrid, 'Text', app.text('fundamental_hz'));
             app.FundamentalLabel.Layout.Row = 6;
             app.FundamentalLabel.Layout.Column = 1;
 
-            app.FundamentalEdit = uieditfield(controlGrid, 'numeric', ...
+            app.FundamentalEdit = uieditfield(app.ControlGrid, 'numeric', ...
                 'Value', 50, 'Limits', [eps Inf]);
             app.FundamentalEdit.Layout.Row = 6;
             app.FundamentalEdit.Layout.Column = 2;
 
-            app.CyclesLabel = uilabel(controlGrid, 'Text', app.text('cycles'));
+            app.CyclesLabel = uilabel(app.ControlGrid, 'Text', app.text('cycles'));
             app.CyclesLabel.Layout.Row = 7;
             app.CyclesLabel.Layout.Column = 1;
 
-            app.CyclesEdit = uieditfield(controlGrid, 'numeric', ...
+            app.CyclesEdit = uieditfield(app.ControlGrid, 'numeric', ...
                 'Value', 10, 'Limits', [eps Inf]);
             app.CyclesEdit.Layout.Row = 7;
             app.CyclesEdit.Layout.Column = 2;
 
-            app.StartTimeLabel = uilabel(controlGrid, 'Text', app.text('start_time_s'));
+            app.StartTimeLabel = uilabel(app.ControlGrid, 'Text', app.text('start_time_s'));
             app.StartTimeLabel.Layout.Row = 8;
             app.StartTimeLabel.Layout.Column = 1;
 
-            app.StartTimeEdit = uieditfield(controlGrid, 'numeric', 'Value', 0);
+            app.StartTimeEdit = uieditfield(app.ControlGrid, 'numeric', 'Value', 0);
             app.StartTimeEdit.Layout.Row = 8;
             app.StartTimeEdit.Layout.Column = 2;
 
-            app.MaxFreqLabel = uilabel(controlGrid, 'Text', app.text('max_freq_hz'));
+            app.MaxFreqLabel = uilabel(app.ControlGrid, 'Text', app.text('max_freq_hz'));
             app.MaxFreqLabel.Layout.Row = 9;
             app.MaxFreqLabel.Layout.Column = 1;
 
-            app.MaxFreqEdit = uieditfield(controlGrid, 'numeric', ...
+            app.MaxFreqEdit = uieditfield(app.ControlGrid, 'numeric', ...
                 'Value', 2000, 'Limits', [eps Inf]);
             app.MaxFreqEdit.Layout.Row = 9;
             app.MaxFreqEdit.Layout.Column = 2;
 
-            app.PlotDetailLabel = uilabel(controlGrid, 'Text', app.text('plot_detail'));
+            app.PlotDetailLabel = uilabel(app.ControlGrid, 'Text', app.text('plot_detail'));
             app.PlotDetailLabel.Layout.Row = 10;
             app.PlotDetailLabel.Layout.Column = 1;
 
-            app.PlotDetailDropDown = uidropdown(controlGrid, ...
+            app.PlotDetailDropDown = uidropdown(app.ControlGrid, ...
                 'Items', app.plotDetailItems(), ...
                 'ValueChangedFcn', @(~, ~) app.onPlotDetailChanged());
             app.PlotDetailDropDown.Layout.Row = 10;
             app.PlotDetailDropDown.Layout.Column = 2;
 
-            app.AnalyzeButton = uibutton(controlGrid, 'Text', app.text('analyze_button'), ...
+            app.AnalyzeButton = uibutton(app.ControlGrid, 'Text', app.text('analyze_button'), ...
                 'Enable', 'off', ...
                 'ButtonPushedFcn', @(~, ~) app.analyzeSignal());
             app.AnalyzeButton.Layout.Row = 11;
             app.AnalyzeButton.Layout.Column = [1 2];
 
-            app.ExportButton = uibutton(controlGrid, 'Text', app.text('export_button'), ...
+            app.ExportButton = uibutton(app.ControlGrid, 'Text', app.text('export_button'), ...
                 'Enable', 'off', ...
                 'ButtonPushedFcn', @(~, ~) app.exportResult());
             app.ExportButton.Layout.Row = 12;
             app.ExportButton.Layout.Column = [1 2];
 
-            app.ResultTable = uitable(controlGrid, ...
+            app.ResultTable = uitable(app.ControlGrid, ...
                 'ColumnName', {app.text('table_item'), app.text('table_value')}, ...
                 'Data', cell(0, 2));
-            app.ResultTable.Layout.Row = [13 15];
+            app.ResultTable.Layout.Row = 13;
             app.ResultTable.Layout.Column = [1 2];
 
-            app.StatusLabel = uilabel(controlGrid, 'Text', app.text('select_file'), ...
+            app.ZoomEnableCheckBox = uicheckbox(app.ControlGrid, ...
+                'Text', app.text('enable_zoom_checkbox'), ...
+                'Value', false, ...
+                'ValueChangedFcn', @(~, ~) app.onZoomEnableChanged());
+            app.ZoomEnableCheckBox.Layout.Row = 14;
+            app.ZoomEnableCheckBox.Layout.Column = [1 2];
+
+            app.ZoomPanel = uipanel(app.ControlGrid, 'Title', app.text('zoom_panel_title'));
+            app.ZoomPanel.Layout.Row = 15;
+            app.ZoomPanel.Layout.Column = [1 2];
+            app.createZoomControls(app.ZoomPanel);
+
+            app.DrawZoomButton = uibutton(app.ControlGrid, 'Text', app.text('draw_zoom_button'), ...
+                'Enable', 'off', ...
+                'ButtonPushedFcn', @(~, ~) app.plotZoomView());
+            app.DrawZoomButton.Layout.Row = 16;
+            app.DrawZoomButton.Layout.Column = [1 2];
+
+            app.StatusLabel = uilabel(app.ControlGrid, 'Text', app.text('select_file'), ...
                 'WordWrap', 'on');
-            app.StatusLabel.Layout.Row = [16 17];
+            app.StatusLabel.Layout.Row = 17;
             app.StatusLabel.Layout.Column = [1 2];
+            app.updateZoomVisibility();
 
             app.PlotPanel = uipanel(mainGrid, 'Title', app.text('analysis_results'));
             app.PlotPanel.Layout.Row = 1;
@@ -203,6 +241,95 @@ classdef FourierAnalysisApp < handle
             app.SpectrumAxes = uiaxes(plotGrid);
             app.SpectrumAxes.Layout.Row = 2;
             grid(app.SpectrumAxes, 'on');
+        end
+
+        function createZoomControls(app, parent)
+            zoomGrid = uigridlayout(parent, [11 4]);
+            zoomGrid.ColumnWidth = {58, '1x', 58, '1x'};
+            zoomGrid.RowHeight = {20, 24, 24, 20, 24, 24, 20, 24, 24, 34, 34};
+            zoomGrid.Padding = [8 8 8 8];
+            zoomGrid.RowSpacing = 5;
+            zoomGrid.ColumnSpacing = 6;
+
+            label = uilabel(zoomGrid, 'Text', app.text('zoom1_label'), 'FontWeight', 'bold');
+            label.Layout.Row = 1;
+            label.Layout.Column = [1 4];
+
+            uilabel(zoomGrid, 'Text', app.text('zoom_start'));
+            app.Zoom1StartEdit = uieditfield(zoomGrid, 'text');
+            uilabel(zoomGrid, 'Text', app.text('zoom_end'));
+            app.Zoom1EndEdit = uieditfield(zoomGrid, 'text');
+
+            uilabel(zoomGrid, 'Text', app.text('zoom_ymin'));
+            app.Zoom1YMinEdit = uieditfield(zoomGrid, 'text');
+            uilabel(zoomGrid, 'Text', app.text('zoom_ymax'));
+            app.Zoom1YMaxEdit = uieditfield(zoomGrid, 'text');
+
+            label = uilabel(zoomGrid, 'Text', app.text('zoom2_label'), 'FontWeight', 'bold');
+            label.Layout.Row = 4;
+            label.Layout.Column = [1 4];
+
+            uilabel(zoomGrid, 'Text', app.text('zoom_start'));
+            app.Zoom2StartEdit = uieditfield(zoomGrid, 'text');
+            uilabel(zoomGrid, 'Text', app.text('zoom_end'));
+            app.Zoom2EndEdit = uieditfield(zoomGrid, 'text');
+
+            uilabel(zoomGrid, 'Text', app.text('zoom_ymin'));
+            app.Zoom2YMinEdit = uieditfield(zoomGrid, 'text');
+            uilabel(zoomGrid, 'Text', app.text('zoom_ymax'));
+            app.Zoom2YMaxEdit = uieditfield(zoomGrid, 'text');
+
+            label = uilabel(zoomGrid, 'Text', app.text('zoom3_label'), 'FontWeight', 'bold');
+            label.Layout.Row = 7;
+            label.Layout.Column = [1 4];
+
+            uilabel(zoomGrid, 'Text', app.text('zoom_start'));
+            app.Zoom3StartEdit = uieditfield(zoomGrid, 'text');
+            uilabel(zoomGrid, 'Text', app.text('zoom_end'));
+            app.Zoom3EndEdit = uieditfield(zoomGrid, 'text');
+
+            uilabel(zoomGrid, 'Text', app.text('zoom_ymin'));
+            app.Zoom3YMinEdit = uieditfield(zoomGrid, 'text');
+            uilabel(zoomGrid, 'Text', app.text('zoom_ymax'));
+            app.Zoom3YMaxEdit = uieditfield(zoomGrid, 'text');
+
+            hint = uilabel(zoomGrid, 'Text', app.text('zoom_empty_hint'), 'WordWrap', 'on');
+            hint.Layout.Row = [10 11];
+            hint.Layout.Column = [1 4];
+        end
+
+        function refreshZoomControls(app)
+            values = app.zoomFieldValues();
+            buttonEnable = 'off';
+            if ~isempty(app.DrawZoomButton) && isvalid(app.DrawZoomButton)
+                buttonEnable = app.DrawZoomButton.Enable;
+            end
+
+            delete(app.ZoomPanel.Children);
+            app.createZoomControls(app.ZoomPanel);
+            app.setZoomFieldValues(values);
+            app.DrawZoomButton.Enable = buttonEnable;
+        end
+
+        function updateZoomVisibility(app)
+            if isempty(app.ControlGrid) || ~isvalid(app.ControlGrid)
+                return;
+            end
+
+            rowHeights = app.ControlGrid.RowHeight;
+            if app.ZoomEnabled
+                rowHeights{15} = 380;
+                rowHeights{16} = 34;
+                app.ZoomPanel.Visible = 'on';
+                app.DrawZoomButton.Visible = 'on';
+            else
+                rowHeights{15} = 0;
+                rowHeights{16} = 0;
+                app.ZoomPanel.Visible = 'off';
+                app.DrawZoomButton.Visible = 'off';
+            end
+            app.ControlGrid.RowHeight = rowHeights;
+            app.restoreActionButtons();
         end
 
         function loadDataFile(app)
@@ -303,7 +430,22 @@ classdef FourierAnalysisApp < handle
             channelItems = arrayfun(@(k) sprintf('%d', k), 1:channelCount, 'UniformOutput', false);
             app.ChannelDropDown.Items = channelItems;
             app.ChannelDropDown.Value = channelItems{1};
+            app.setDefaultZoomFields();
 
+            app.plotPreview();
+            cla(app.SpectrumAxes);
+            app.formatSpectrumAxes('empty');
+        end
+
+        function onChannelChanged(app)
+            if isempty(app.CurrentTime) || isempty(app.CurrentWaveform)
+                return;
+            end
+
+            app.HasResult = false;
+            app.Result = struct();
+            app.ResultTable.Data = cell(0, 2);
+            app.ExportButton.Enable = 'off';
             app.plotPreview();
             cla(app.SpectrumAxes);
             app.formatSpectrumAxes('empty');
@@ -381,10 +523,17 @@ classdef FourierAnalysisApp < handle
             end
         end
 
+        function onZoomEnableChanged(app)
+            app.ZoomEnabled = logical(app.ZoomEnableCheckBox.Value);
+            app.updateZoomVisibility();
+        end
+
         function updateLanguageTexts(app)
             app.Figure.Name = app.text('app_title');
             app.ControlPanel.Title = app.text('fft_params');
             app.PlotPanel.Title = app.text('analysis_results');
+            app.ZoomPanel.Title = app.text('zoom_panel_title');
+            app.ZoomEnableCheckBox.Text = app.text('enable_zoom_checkbox');
             app.LoadButton.Text = app.text('load_button');
             app.LanguageLabel.Text = app.text('language');
             app.PlotDetailLabel.Text = app.text('plot_detail');
@@ -398,7 +547,10 @@ classdef FourierAnalysisApp < handle
             app.MaxFreqLabel.Text = app.text('max_freq_hz');
             app.AnalyzeButton.Text = app.text('analyze_button');
             app.ExportButton.Text = app.text('export_button');
+            app.DrawZoomButton.Text = app.text('draw_zoom_button');
             app.ResultTable.ColumnName = {app.text('table_item'), app.text('table_value')};
+            app.refreshZoomControls();
+            app.updateZoomVisibility();
 
             if isempty(app.CurrentFileName)
                 app.FileLabel.Text = app.text('loaded_none');
@@ -425,8 +577,9 @@ classdef FourierAnalysisApp < handle
 
         function plotPreview(app)
             cla(app.TimeAxes);
+            channelIndex = app.currentChannelIndex();
             [plotTime, plotWaveform] = FourierAnalysisApp.downsampleForPlot( ...
-                app.CurrentTime, app.CurrentWaveform(:, 1), app.timePlotPointLimit());
+                app.CurrentTime, app.CurrentWaveform(:, channelIndex), app.timePlotPointLimit());
             plot(app.TimeAxes, plotTime, plotWaveform, ...
                 'Color', [0.1 0.35 0.8]);
             title(app.TimeAxes, app.text('time_preview'));
@@ -482,6 +635,73 @@ classdef FourierAnalysisApp < handle
             grid(app.SpectrumAxes, 'on');
         end
 
+        function plotZoomView(app)
+            if isempty(app.CurrentTime) || isempty(app.CurrentWaveform)
+                app.setStatus('load_select_signal');
+                return;
+            end
+
+            try
+                [zoomRanges, yLimits] = app.readZoomConfig();
+            catch ME
+                app.showError('zoom_failed', ME.message);
+                return;
+            end
+
+            channelIndex = app.currentChannelIndex();
+            time = app.CurrentTime;
+            waveform = app.CurrentWaveform(:, channelIndex);
+            signalName = app.currentSignalName(channelIndex);
+            zoomCount = size(zoomRanges, 1);
+            for k = 1:zoomCount
+                if ~any(time >= zoomRanges(k, 1) & time <= zoomRanges(k, 2))
+                    app.showError('zoom_failed', app.text('zoom_no_data', zoomRanges(k, 1), zoomRanges(k, 2)));
+                    return;
+                end
+            end
+
+            figure('Name', app.text('zoom_figure_title'), ...
+                'Color', 'white', ...
+                'Position', [560 180 820 600]);
+
+            overviewPos = [0.08 0.56 0.86 0.36];
+            zoomPositions = app.zoomAxesPositions(zoomCount);
+
+            overviewAxes = subplot('Position', overviewPos);
+            [plotTime, plotWaveform] = FourierAnalysisApp.downsampleForPlot( ...
+                time, waveform, app.timePlotPointLimit());
+            plot(overviewAxes, plotTime, plotWaveform, 'Color', [0.1 0.35 0.8]);
+            hold(overviewAxes, 'on');
+            for k = 1:zoomCount
+                app.drawZoomBoundary(overviewAxes, zoomRanges(k, 1));
+                app.drawZoomBoundary(overviewAxes, zoomRanges(k, 2));
+            end
+            hold(overviewAxes, 'off');
+            title(overviewAxes, app.mixedFontText(sprintf('%s - %s', app.text('zoom_overview_title'), signalName)), ...
+                'Interpreter', 'tex');
+            xlabel(overviewAxes, app.mixedFontText(app.text('time_xlabel')), 'Interpreter', 'tex');
+            ylabel(overviewAxes, app.mixedFontText(app.text('mag_ylabel')), 'Interpreter', 'tex');
+            xlim(overviewAxes, [time(1), time(end)]);
+            app.setStandaloneAxesFormat(overviewAxes);
+
+            for k = 1:zoomCount
+                zoomAxes = subplot('Position', zoomPositions(k, :));
+                idx = time >= zoomRanges(k, 1) & time <= zoomRanges(k, 2);
+                [zoomTime, zoomWaveform] = FourierAnalysisApp.downsampleForPlot( ...
+                    time(idx), waveform(idx), app.timePlotPointLimit());
+                plot(zoomAxes, zoomTime, zoomWaveform, 'Color', [0.1 0.35 0.8]);
+                title(zoomAxes, app.mixedFontText(app.text('zoom_subplot_title', k, zoomRanges(k, 1), zoomRanges(k, 2))), ...
+                    'Interpreter', 'tex');
+                xlabel(zoomAxes, app.mixedFontText(app.text('time_xlabel')), 'Interpreter', 'tex');
+                ylabel(zoomAxes, app.mixedFontText(app.text('mag_ylabel')), 'Interpreter', 'tex');
+                xlim(zoomAxes, zoomRanges(k, :));
+                if ~isempty(yLimits{k})
+                    ylim(zoomAxes, yLimits{k});
+                end
+                app.setStandaloneAxesFormat(zoomAxes);
+            end
+        end
+
         function resetPlots(app)
             cla(app.TimeAxes);
             title(app.TimeAxes, app.text('time_title'));
@@ -504,6 +724,249 @@ classdef FourierAnalysisApp < handle
                 app.text('result_fund_mag'), result.fundamentalMagnitude
                 app.text('result_thd'), result.thd * 100
                 };
+        end
+
+        function setDefaultZoomFields(app)
+            if isempty(app.CurrentTime)
+                return;
+            end
+
+            timeStart = app.CurrentTime(1);
+            timeEnd = app.CurrentTime(end);
+            span = timeEnd - timeStart;
+            if span <= 0
+                return;
+            end
+
+            zoomStart = timeStart + 0.10 * span;
+            zoomEnd = timeStart + 0.15 * span;
+            app.Zoom1StartEdit.Value = app.formatNumberForEdit(zoomStart);
+            app.Zoom1EndEdit.Value = app.formatNumberForEdit(zoomEnd);
+            app.Zoom1YMinEdit.Value = '';
+            app.Zoom1YMaxEdit.Value = '';
+            app.Zoom2StartEdit.Value = '';
+            app.Zoom2EndEdit.Value = '';
+            app.Zoom2YMinEdit.Value = '';
+            app.Zoom2YMaxEdit.Value = '';
+            app.Zoom3StartEdit.Value = '';
+            app.Zoom3EndEdit.Value = '';
+            app.Zoom3YMinEdit.Value = '';
+            app.Zoom3YMaxEdit.Value = '';
+        end
+
+        function [ranges, yLimits] = readZoomConfig(app)
+            z1Start = app.parseRequiredEdit(app.Zoom1StartEdit.Value, app.text('zoom1_start_name'));
+            z1End = app.parseRequiredEdit(app.Zoom1EndEdit.Value, app.text('zoom1_end_name'));
+            app.validateZoomRange(z1Start, z1End, app.text('zoom1_label'));
+            ranges = zeros(3, 2);
+            yLimits = cell(3, 1);
+            zoomCount = 1;
+            ranges(zoomCount, :) = [z1Start, z1End];
+            yLimits{zoomCount} = app.readOptionalYLimit( ...
+                app.Zoom1YMinEdit.Value, app.Zoom1YMaxEdit.Value, app.text('zoom1_label'));
+
+            optionalSpecs = {
+                app.Zoom2StartEdit, app.Zoom2EndEdit, app.Zoom2YMinEdit, app.Zoom2YMaxEdit, app.text('zoom2_label'), app.text('zoom2_start_name'), app.text('zoom2_end_name')
+                app.Zoom3StartEdit, app.Zoom3EndEdit, app.Zoom3YMinEdit, app.Zoom3YMaxEdit, app.text('zoom3_label'), app.text('zoom3_start_name'), app.text('zoom3_end_name')
+                };
+            for k = 1:size(optionalSpecs, 1)
+                startText = strtrim(optionalSpecs{k, 1}.Value);
+                endText = strtrim(optionalSpecs{k, 2}.Value);
+                if isempty(startText) && isempty(endText)
+                    continue;
+                end
+                if isempty(startText) || isempty(endText)
+                    error(app.text('zoom_optional_pair_error', optionalSpecs{k, 5}));
+                end
+
+                startTime = app.parseRequiredEdit(startText, optionalSpecs{k, 6});
+                endTime = app.parseRequiredEdit(endText, optionalSpecs{k, 7});
+                app.validateZoomRange(startTime, endTime, optionalSpecs{k, 5});
+                zoomCount = zoomCount + 1;
+                ranges(zoomCount, :) = [startTime, endTime];
+                yLimits{zoomCount} = app.readOptionalYLimit( ...
+                    optionalSpecs{k, 3}.Value, optionalSpecs{k, 4}.Value, optionalSpecs{k, 5});
+            end
+            ranges = ranges(1:zoomCount, :);
+            yLimits = yLimits(1:zoomCount);
+        end
+
+        function yLimits = readZoomYLimits(app)
+            yLimits = cell(3, 1);
+            yLimits{1} = app.readOptionalYLimit( ...
+                app.Zoom1YMinEdit.Value, app.Zoom1YMaxEdit.Value, app.text('zoom1_label'));
+            yLimits{2} = app.readOptionalYLimit( ...
+                app.Zoom2YMinEdit.Value, app.Zoom2YMaxEdit.Value, app.text('zoom2_label'));
+            yLimits{3} = app.readOptionalYLimit( ...
+                app.Zoom3YMinEdit.Value, app.Zoom3YMaxEdit.Value, app.text('zoom3_label'));
+        end
+
+        function yLimit = readOptionalYLimit(app, yMinText, yMaxText, label)
+            yMinText = strtrim(yMinText);
+            yMaxText = strtrim(yMaxText);
+            if isempty(yMinText) && isempty(yMaxText)
+                yLimit = [];
+                return;
+            end
+            if isempty(yMinText) || isempty(yMaxText)
+                error(app.text('zoom_y_pair_error', label));
+            end
+
+            yMin = app.parseRequiredEdit(yMinText, app.text('zoom_ymin'));
+            yMax = app.parseRequiredEdit(yMaxText, app.text('zoom_ymax'));
+            if yMax <= yMin
+                error(app.text('zoom_y_order_error', label));
+            end
+            yLimit = [yMin, yMax];
+        end
+
+        function value = parseRequiredEdit(app, textValue, label)
+            textValue = strtrim(textValue);
+            if isempty(textValue)
+                error(app.text('zoom_required_error', label));
+            end
+            value = str2double(textValue);
+            if ~isfinite(value)
+                error(app.text('zoom_numeric_error', label));
+            end
+        end
+
+        function validateZoomRange(app, startTime, endTime, label)
+            if endTime <= startTime
+                error(app.text('zoom_time_order_error', label));
+            end
+            if endTime < app.CurrentTime(1) || startTime > app.CurrentTime(end)
+                error(app.text('zoom_time_outside_error', label, app.CurrentTime(1), app.CurrentTime(end)));
+            end
+        end
+
+        function index = currentChannelIndex(app)
+            index = str2double(app.ChannelDropDown.Value);
+            if ~isfinite(index) || index < 1 || index > size(app.CurrentWaveform, 2)
+                index = 1;
+            end
+        end
+
+        function name = currentSignalName(app, channelIndex)
+            signalName = char(app.SignalDropDown.Value);
+            if size(app.CurrentWaveform, 2) > 1
+                name = sprintf('%s - %s %d', signalName, app.text('channel'), channelIndex);
+            else
+                name = signalName;
+            end
+        end
+
+        function drawZoomBoundary(~, axesHandle, xValue)
+            yLimits = ylim(axesHandle);
+            line(axesHandle, [xValue xValue], yLimits, ...
+                'Color', 'k', 'LineStyle', '--', 'LineWidth', 0.9);
+        end
+
+        function setStandaloneAxesFormat(~, axesHandle)
+            grid(axesHandle, 'on');
+            box(axesHandle, 'on');
+            set(axesHandle, 'LineWidth', 0.75, ...
+                'FontName', 'Times New Roman', ...
+                'FontSize', 12.5, ...
+                'GridLineStyle', ':', ...
+                'GridAlpha', 0.4, ...
+                'GridColor', [0.1, 0.1, 0.1]);
+            set(ancestor(axesHandle, 'figure'), 'Color', 'white');
+        end
+
+        function positions = zoomAxesPositions(~, zoomCount)
+            switch zoomCount
+                case 1
+                    positions = [0.09 0.12 0.86 0.32];
+                case 2
+                    positions = [
+                        0.09 0.12 0.40 0.32
+                        0.55 0.12 0.40 0.32
+                        ];
+                otherwise
+                    positions = [
+                        0.08 0.12 0.26 0.30
+                        0.38 0.12 0.26 0.30
+                        0.68 0.12 0.26 0.30
+                        ];
+            end
+        end
+
+        function formatted = mixedFontText(~, textValue)
+            textValue = char(textValue);
+            if isempty(textValue)
+                formatted = '';
+                return;
+            end
+
+            formatted = '';
+            currentIsChinese = [];
+            segment = '';
+            for k = 1:numel(textValue)
+                ch = textValue(k);
+                isChinese = double(ch) > 127;
+                if isempty(currentIsChinese)
+                    currentIsChinese = isChinese;
+                    segment = ch;
+                elseif isChinese == currentIsChinese
+                    segment = [segment ch]; %#ok<AGROW>
+                else
+                    formatted = [formatted FourierAnalysisApp.fontSegment(segment, currentIsChinese)]; %#ok<AGROW>
+                    currentIsChinese = isChinese;
+                    segment = ch;
+                end
+            end
+            formatted = [formatted FourierAnalysisApp.fontSegment(segment, currentIsChinese)];
+        end
+
+        function values = zoomFieldValues(app)
+            fields = {
+                'Zoom1StartEdit'
+                'Zoom1EndEdit'
+                'Zoom1YMinEdit'
+                'Zoom1YMaxEdit'
+                'Zoom2StartEdit'
+                'Zoom2EndEdit'
+                'Zoom2YMinEdit'
+                'Zoom2YMaxEdit'
+                'Zoom3StartEdit'
+                'Zoom3EndEdit'
+                'Zoom3YMinEdit'
+                'Zoom3YMaxEdit'
+                };
+            values = cell(size(fields));
+            for k = 1:numel(fields)
+                control = app.(fields{k});
+                if isempty(control) || ~isvalid(control)
+                    values{k} = '';
+                else
+                    values{k} = control.Value;
+                end
+            end
+        end
+
+        function setZoomFieldValues(app, values)
+            fields = {
+                'Zoom1StartEdit'
+                'Zoom1EndEdit'
+                'Zoom1YMinEdit'
+                'Zoom1YMaxEdit'
+                'Zoom2StartEdit'
+                'Zoom2EndEdit'
+                'Zoom2YMinEdit'
+                'Zoom2YMaxEdit'
+                'Zoom3StartEdit'
+                'Zoom3EndEdit'
+                'Zoom3YMinEdit'
+                'Zoom3YMaxEdit'
+                };
+            for k = 1:min(numel(fields), numel(values))
+                app.(fields{k}).Value = values{k};
+            end
+        end
+
+        function textValue = formatNumberForEdit(~, value)
+            textValue = sprintf('%.9g', value);
         end
 
         function maxPoints = timePlotPointLimit(app)
@@ -547,8 +1010,14 @@ classdef FourierAnalysisApp < handle
             app.LoadButton.Enable = 'on';
             if isempty(app.CurrentTime) || isempty(app.CurrentWaveform)
                 app.AnalyzeButton.Enable = 'off';
+                app.DrawZoomButton.Enable = 'off';
             else
                 app.AnalyzeButton.Enable = 'on';
+                if app.ZoomEnabled
+                    app.DrawZoomButton.Enable = 'on';
+                else
+                    app.DrawZoomButton.Enable = 'off';
+                end
             end
 
             if app.HasResult
@@ -601,6 +1070,64 @@ classdef FourierAnalysisApp < handle
                     template = '精细 20万点';
                 case 'plot_detail_full'
                     template = '完整 全部点';
+                case 'enable_zoom_checkbox'
+                    template = '启用波形局部放大';
+                case 'zoom_panel_title'
+                    template = '波形局部放大';
+                case 'zoom1_label'
+                    template = '放大区 1';
+                case 'zoom2_label'
+                    template = '放大区 2（可选）';
+                case 'zoom3_label'
+                    template = '放大区 3（可选）';
+                case 'zoom_start'
+                    template = '起点 s';
+                case 'zoom_end'
+                    template = '终点 s';
+                case 'zoom_ymin'
+                    template = 'Y 下限';
+                case 'zoom_ymax'
+                    template = 'Y 上限';
+                case 'zoom_empty_hint'
+                    template = 'Y 轴留空为自动；放大区 2/3 起止时间留空则跳过。';
+                case 'draw_zoom_button'
+                    template = '绘制放大图';
+                case 'zoom_figure_title'
+                    template = '波形局部放大';
+                case 'zoom_overview_title'
+                    template = '整体波形';
+                case 'zoom_subplot_title'
+                    template = '放大区 %d: %.6g - %.6g s';
+                case 'zoom_failed'
+                    template = '局部放大绘图失败';
+                case 'zoom_no_data'
+                    template = '区间 %.6g - %.6g s 内没有数据点。';
+                case 'zoom1_start_name'
+                    template = '放大区 1 起点';
+                case 'zoom1_end_name'
+                    template = '放大区 1 终点';
+                case 'zoom2_start_name'
+                    template = '放大区 2 起点';
+                case 'zoom2_end_name'
+                    template = '放大区 2 终点';
+                case 'zoom3_start_name'
+                    template = '放大区 3 起点';
+                case 'zoom3_end_name'
+                    template = '放大区 3 终点';
+                case 'zoom_required_error'
+                    template = '%s 不能为空。';
+                case 'zoom_numeric_error'
+                    template = '%s 必须是有效数字。';
+                case 'zoom_time_order_error'
+                    template = '%s 的终点时间必须大于起点时间。';
+                case 'zoom_time_outside_error'
+                    template = '%s 超出当前数据时间范围 %.6g - %.6g s。';
+                case 'zoom_optional_pair_error'
+                    template = '%s 的起点和终点必须同时填写，或同时留空。';
+                case 'zoom_y_pair_error'
+                    template = '%s 的 Y 下限和 Y 上限必须同时填写，或同时留空。';
+                case 'zoom_y_order_error'
+                    template = '%s 的 Y 上限必须大于 Y 下限。';
                 case 'signal_var'
                     template = '信号变量';
                 case 'load_file_first'
@@ -720,6 +1247,64 @@ classdef FourierAnalysisApp < handle
                     template = 'Fine 200k pts';
                 case 'plot_detail_full'
                     template = 'Full all pts';
+                case 'enable_zoom_checkbox'
+                    template = 'Enable Waveform Zoom';
+                case 'zoom_panel_title'
+                    template = 'Waveform Zoom';
+                case 'zoom1_label'
+                    template = 'Zoom Region 1';
+                case 'zoom2_label'
+                    template = 'Zoom Region 2 (Optional)';
+                case 'zoom3_label'
+                    template = 'Zoom Region 3 (Optional)';
+                case 'zoom_start'
+                    template = 'Start s';
+                case 'zoom_end'
+                    template = 'End s';
+                case 'zoom_ymin'
+                    template = 'Y Min';
+                case 'zoom_ymax'
+                    template = 'Y Max';
+                case 'zoom_empty_hint'
+                    template = 'Leave Y limits empty for auto scale. Leave region 2/3 start/end empty to skip them.';
+                case 'draw_zoom_button'
+                    template = 'Draw Zoom Figure';
+                case 'zoom_figure_title'
+                    template = 'Waveform Zoom';
+                case 'zoom_overview_title'
+                    template = 'Overview';
+                case 'zoom_subplot_title'
+                    template = 'Zoom %d: %.6g - %.6g s';
+                case 'zoom_failed'
+                    template = 'Zoom Plot Failed';
+                case 'zoom_no_data'
+                    template = 'No data points exist in %.6g - %.6g s.';
+                case 'zoom1_start_name'
+                    template = 'Zoom region 1 start';
+                case 'zoom1_end_name'
+                    template = 'Zoom region 1 end';
+                case 'zoom2_start_name'
+                    template = 'Zoom region 2 start';
+                case 'zoom2_end_name'
+                    template = 'Zoom region 2 end';
+                case 'zoom3_start_name'
+                    template = 'Zoom region 3 start';
+                case 'zoom3_end_name'
+                    template = 'Zoom region 3 end';
+                case 'zoom_required_error'
+                    template = '%s cannot be empty.';
+                case 'zoom_numeric_error'
+                    template = '%s must be a valid number.';
+                case 'zoom_time_order_error'
+                    template = '%s end time must be greater than start time.';
+                case 'zoom_time_outside_error'
+                    template = '%s is outside the current data time range %.6g - %.6g s.';
+                case 'zoom_optional_pair_error'
+                    template = '%s start and end must both be filled, or both be empty.';
+                case 'zoom_y_pair_error'
+                    template = '%s Y min and Y max must both be filled, or both be empty.';
+                case 'zoom_y_order_error'
+                    template = '%s Y max must be greater than Y min.';
                 case 'signal_var'
                     template = 'Signal';
                 case 'load_file_first'
@@ -938,6 +1523,30 @@ classdef FourierAnalysisApp < handle
             indexes = unique(indexes);
             xOut = x(indexes);
             yOut = y(indexes);
+        end
+
+        function formatted = fontSegment(segment, isChinese)
+            if isChinese
+                fontName = '宋体';
+            else
+                fontName = 'Times New Roman';
+            end
+            escaped = FourierAnalysisApp.escapeTexLiteral(segment);
+            formatted = sprintf('\\fontname{%s}%s', fontName, escaped);
+        end
+
+        function escaped = escapeTexLiteral(textValue)
+            escaped = char(textValue);
+            replacements = {
+                '{', '\{'
+                '}', '\}'
+                '_', '\_'
+                '^', '\^{}'
+                '%', '\%'
+                };
+            for k = 1:size(replacements, 1)
+                escaped = strrep(escaped, replacements{k, 1}, replacements{k, 2});
+            end
         end
 
         function value = getByPath(data, path)
