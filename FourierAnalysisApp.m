@@ -45,6 +45,8 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
         Zoom3YMaxEdit
         DrawZoomButton
         StatusLabel
+        FooterHtml
+        AboutButton
         TimeAxes
         SpectrumAxes
         ResultTable
@@ -101,11 +103,39 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
                 'CloseRequestFcn', @(~, ~) delete(app), ...
                 'Position', [100 80 1240 760]);
 
-            mainGrid = uigridlayout(app.Figure, [1 2]);
+            rootGrid = uigridlayout(app.Figure, [2 1]);
+            rootGrid.RowHeight = {'1x', 42};
+            rootGrid.ColumnWidth = {'1x'};
+            rootGrid.Padding = [12 12 12 10];
+            rootGrid.RowSpacing = 8;
+
+            mainGrid = uigridlayout(rootGrid, [1 2]);
+            mainGrid.Layout.Row = 1;
+            mainGrid.Layout.Column = 1;
             mainGrid.ColumnWidth = {340, '1x'};
             mainGrid.RowHeight = {'1x'};
-            mainGrid.Padding = [12 12 12 12];
+            mainGrid.Padding = [0 0 0 0];
             mainGrid.ColumnSpacing = 12;
+
+            footerGrid = uigridlayout(rootGrid, [1 2]);
+            footerGrid.Layout.Row = 2;
+            footerGrid.Layout.Column = 1;
+            footerGrid.ColumnWidth = {'1x', 88};
+            footerGrid.RowHeight = {'1x'};
+            footerGrid.Padding = [0 0 0 0];
+            footerGrid.ColumnSpacing = 8;
+
+            app.FooterHtml = uihtml(footerGrid, ...
+                'HTMLSource', app.resourceFile('authorLinks.html'), ...
+                'HTMLEventReceivedFcn', @(~, event) app.onAuthorLinkEvent(event));
+            app.FooterHtml.Layout.Row = 1;
+            app.FooterHtml.Layout.Column = 1;
+
+            app.AboutButton = uibutton(footerGrid, ...
+                'Text', app.text('about_button'), ...
+                'ButtonPushedFcn', @(~, ~) app.showAboutDialog());
+            app.AboutButton.Layout.Row = 1;
+            app.AboutButton.Layout.Column = 2;
 
             app.ControlPanel = uipanel(mainGrid, 'Title', app.text('fft_params'), ...
                 'Scrollable', 'on');
@@ -568,6 +598,7 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
             app.AnalyzeButton.Text = app.text('analyze_button');
             app.ExportButton.Text = app.text('export_button');
             app.DrawZoomButton.Text = app.text('draw_zoom_button');
+            app.AboutButton.Text = app.text('about_button');
             app.ResultTable.ColumnName = {app.text('table_item'), app.text('table_value')};
             app.refreshZoomControls();
             app.updateZoomVisibility();
@@ -1052,6 +1083,66 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
             uialert(app.Figure, messageText, app.text(titleKey));
         end
 
+        function showAboutDialog(app)
+            dialog = uifigure('Name', app.text('about_title'), ...
+                'Position', [420 260 560 300], ...
+                'WindowStyle', 'modal');
+            html = uihtml(dialog, ...
+                'Position', [0 0 560 300], ...
+                'HTMLSource', app.resourceFile('aboutAuthor.html'), ...
+                'HTMLEventReceivedFcn', @(~, event) app.onAuthorLinkEvent(event));
+            html.Data = struct('unused', true);
+        end
+
+        function value = aboutText(~)
+            value = sprintf(['FFT Analysis Tools\n\n' ...
+                'Copyright (c) 2026 Zhenbin Huang\n\n' ...
+                'Author: Zhenbin Huang\n' ...
+                'ORCID: https://orcid.org/0000-0002-0628-0387\n' ...
+                'LinkedIn: https://www.linkedin.com/in/zhenbin-huang/']);
+        end
+
+        function onAuthorLinkEvent(app, event)
+            if ~strcmp(event.HTMLEventName, 'OpenLink')
+                return;
+            end
+
+            url = char(event.HTMLEventData);
+            allowedUrls = {
+                'https://orcid.org/0000-0002-0628-0387'
+                'https://www.linkedin.com/in/zhenbin-huang/'
+                };
+            if ~any(strcmp(url, allowedUrls))
+                return;
+            end
+
+            try
+                web(url, '-browser');
+            catch ME
+                app.showError('link_open_failed', ME.message);
+            end
+        end
+
+        function filePath = resourceFile(~, fileName)
+            appFolder = fileparts(mfilename('fullpath'));
+            candidates = {
+                fullfile(appFolder, 'resources', fileName)
+                fullfile(appFolder, fileName)
+                };
+            if isdeployed
+                candidates{end+1} = fullfile(ctfroot, 'resources', fileName);
+                candidates{end+1} = fullfile(ctfroot, fileName);
+            end
+
+            for k = 1:numel(candidates)
+                if isfile(candidates{k})
+                    filePath = candidates{k};
+                    return;
+                end
+            end
+            error('Resource file not found: %s', fileName);
+        end
+
         function value = text(app, key, varargin)
             if strcmp(app.Language, 'en')
                 template = app.englishText(key);
@@ -1084,6 +1175,10 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
                     template = '语言';
                 case 'plot_detail'
                     template = '显示精度';
+                case 'about_button'
+                    template = 'About';
+                case 'about_title'
+                    template = 'FFT Analysis Tools';
                 case 'plot_detail_fast'
                     template = '快速 2万点';
                 case 'plot_detail_fine'
@@ -1202,6 +1297,8 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
                     template = '结果已导出到工作区变量 FFT_UI_Result。';
                 case 'file_load_failed'
                     template = '文件加载失败';
+                case 'link_open_failed'
+                    template = '打开链接失败';
                 case 'signal_read_failed'
                     template = '信号读取失败';
                 case 'fft_failed'
@@ -1248,7 +1345,7 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
         function template = englishText(key)
             switch key
                 case 'app_title'
-                    template = 'Fourier Analysis';
+                    template = 'FFT Analysis Tools';
                 case 'fft_params'
                     template = 'FFT Parameters';
                 case 'analysis_results'
@@ -1261,6 +1358,10 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
                     template = 'Language';
                 case 'plot_detail'
                     template = 'Plot Detail';
+                case 'about_button'
+                    template = 'About';
+                case 'about_title'
+                    template = 'FFT Analysis Tools';
                 case 'plot_detail_fast'
                     template = 'Fast 20k pts';
                 case 'plot_detail_fine'
@@ -1379,6 +1480,8 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
                     template = 'Result exported to workspace variable FFT_UI_Result.';
                 case 'file_load_failed'
                     template = 'File Load Failed';
+                case 'link_open_failed'
+                    template = 'Open Link Failed';
                 case 'signal_read_failed'
                     template = 'Signal Read Failed';
                 case 'fft_failed'

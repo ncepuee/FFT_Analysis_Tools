@@ -1,0 +1,117 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    html, body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      font-family: "Segoe UI", Arial, sans-serif;
+      background: #f7f9fb;
+      color: #28323c;
+    }
+    .bar {
+      box-sizing: border-box;
+      height: 42px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 5px 10px;
+      border: 1px solid #dce3ea;
+      border-radius: 7px;
+      background: linear-gradient(180deg, #ffffff 0%, #f3f6f9 100%);
+    }
+    .brand {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+      min-width: 0;
+      flex: 1 1 auto;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .title {
+      font-size: 12px;
+      font-weight: 700;
+      color: #17202a;
+    }
+    .copy {
+      font-size: 11px;
+      color: #596773;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .links {
+      display: flex;
+      gap: 8px;
+      flex: 0 0 auto;
+      align-items: center;
+    }
+    .link {
+      height: 26px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 0 10px 0 7px;
+      border-radius: 999px;
+      border: 1px solid #cbd6df;
+      background: #ffffff;
+      color: #1d4f73;
+      text-decoration: none;
+      font-size: 11px;
+      font-weight: 600;
+      line-height: 26px;
+      cursor: pointer;
+    }
+    .link:hover {
+      border-color: #78a9cc;
+      background: #eef7fc;
+    }
+    svg {
+      width: 16px;
+      height: 16px;
+      display: block;
+      flex: 0 0 auto;
+    }
+  </style>
+</head>
+<body>
+  <div class="bar">
+    <div class="brand">
+      <span class="title">FFT Analysis Tools</span>
+      <span class="copy">Copyright (c) 2026 Zhenbin Huang</span>
+    </div>
+    <div class="links">
+      <a class="link" href="#" data-url="https://orcid.org/0000-0002-0628-0387" title="Open ORCID profile">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="12" cy="12" r="12" fill="#A6CE39"></circle>
+          <text x="6" y="16" font-family="Arial, sans-serif" font-size="9" font-weight="700" fill="#ffffff">iD</text>
+        </svg>
+        ORCID
+      </a>
+      <a class="link" href="#" data-url="https://www.linkedin.com/in/zhenbin-huang/" title="Open LinkedIn profile">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <rect width="24" height="24" rx="4" fill="#0A66C2"></rect>
+          <text x="6" y="17" font-family="Arial, sans-serif" font-size="13" font-weight="700" fill="#ffffff">in</text>
+        </svg>
+        LinkedIn
+      </a>
+    </div>
+  </div>
+  <script>
+    function setup(htmlComponent) {
+      document.addEventListener("click", function(event) {
+        var target = event.target.closest("[data-url]");
+        if (!target) {
+          return;
+        }
+        event.preventDefault();
+        htmlComponent.sendEventToMATLAB("OpenLink", target.getAttribute("data-url"));
+      });
+    }
+  </script>
+</body>
+</html>
