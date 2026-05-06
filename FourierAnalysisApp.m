@@ -1167,7 +1167,7 @@ classdef FourierAnalysisApp < handle
                 case 'select_mat_file'
                     template = '选择 MAT 文件';
                 case 'no_supported_format'
-                    template = '未找到支持的数据格式。MAT 变量需包含 time 和 signals.values；CSV 需包含 TIME 和至少一个波形列。';
+                    template = '未找到支持的数据格式。MAT 中的 struct 或 Simulink.SimulationOutput 内部变量需包含 time 和 signals.values；CSV 需包含 TIME 和至少一个波形列。';
                 case 'signals_found'
                     template = '已找到 %d 个可分析信号。';
                 case 'csv_loaded'
@@ -1344,7 +1344,7 @@ classdef FourierAnalysisApp < handle
                 case 'select_mat_file'
                     template = 'Select MAT File';
                 case 'no_supported_format'
-                    template = 'No supported data format was found. MAT variables must contain time and signals.values; CSV files must contain TIME and at least one waveform column.';
+                    template = 'No supported data format was found. MAT struct variables or Simulink.SimulationOutput entries must contain time and signals.values; CSV files must contain TIME and at least one waveform column.';
                 case 'signals_found'
                     template = 'Found %d analyzable signal(s).';
                 case 'csv_loaded'
@@ -1404,14 +1404,23 @@ classdef FourierAnalysisApp < handle
 
         function candidates = findSignalCandidates(data, prefix)
             candidates = struct('label', {}, 'path', {}, 'source', {}, 'column', {});
-            if ~isstruct(data) || ~isscalar(data)
+            if ~(isstruct(data) || FourierAnalysisApp.isSimulationOutputLike(data)) || ~isscalar(data)
                 return;
             end
 
-            names = fieldnames(data);
+            if FourierAnalysisApp.isSimulationOutputLike(data)
+                names = who(data);
+            else
+                names = fieldnames(data);
+            end
+
             for k = 1:numel(names)
                 name = names{k};
-                value = data.(name);
+                try
+                    value = FourierAnalysisApp.getMember(data, name);
+                catch
+                    continue;
+                end
                 if prefix == ""
                     path = string(name);
                 else
@@ -1423,7 +1432,7 @@ classdef FourierAnalysisApp < handle
                     candidates(end).path = char(path);
                     candidates(end).source = 'mat';
                     candidates(end).column = NaN;
-                elseif isstruct(value) && isscalar(value)
+                elseif isscalar(value) && (isstruct(value) || FourierAnalysisApp.isSimulationOutputLike(value))
                     nested = FourierAnalysisApp.findSignalCandidates(value, path);
                     candidates = [candidates, nested]; %#ok<AGROW>
                 end
@@ -1441,26 +1450,38 @@ classdef FourierAnalysisApp < handle
         end
 
         function tf = isSupportedSignal(value)
-            tf = false;
-            if isa(value, 'timeseries')
-                tf = true;
-                return;
-            end
-
-            if isstruct(value) && isscalar(value) && isfield(value, 'time') && isfield(value, 'signals')
-                signals = value.signals;
-                tf = isstruct(signals) && isfield(signals, 'values');
+            try
+                [time, waveform] = FourierAnalysisApp.signalValueToTimeWaveform(value);
+                tf = ~isempty(time) && ~isempty(waveform);
+            catch
+                tf = false;
             end
         end
 
         function [time, waveform] = readSignal(data, path)
             value = FourierAnalysisApp.getByPath(data, path);
+            [time, waveform] = FourierAnalysisApp.signalValueToTimeWaveform(value);
+        end
+
+        function [time, waveform] = signalValueToTimeWaveform(value)
             if isa(value, 'timeseries')
                 time = value.Time;
                 waveform = value.Data;
-            else
+            elseif isstruct(value) && isscalar(value) && isfield(value, 'time') && isfield(value, 'signals')
+                signals = value.signals;
+                if ~isstruct(signals) || ~isfield(signals, 'values')
+                    error('Unsupported signal structure. Expected signals.values.');
+                end
+
+                if isscalar(signals)
+                    waveform = signals.values;
+                else
+                    values = arrayfun(@(s) s.values, signals, 'UniformOutput', false);
+                    waveform = cat(2, values{:});
+                end
                 time = value.time;
-                waveform = value.signals.values;
+            else
+                error('Unsupported signal type: %s.', class(value));
             end
 
             time = double(time(:));
@@ -1553,8 +1574,25 @@ classdef FourierAnalysisApp < handle
             parts = split(string(path), ".");
             value = data;
             for k = 1:numel(parts)
-                value = value.(char(parts(k)));
+                value = FourierAnalysisApp.getMember(value, char(parts(k)));
             end
+        end
+
+        function value = getMember(data, name)
+            if isstruct(data)
+                value = data.(name);
+            elseif FourierAnalysisApp.isSimulationOutputLike(data)
+                value = data.get(name);
+            elseif isobject(data) && isprop(data, name)
+                value = data.(name);
+            else
+                error('Unsupported container type: %s.', class(data));
+            end
+        end
+
+        function tf = isSimulationOutputLike(value)
+            tf = isa(value, 'Simulink.SimulationOutput') || ...
+                (isobject(value) && ismethod(value, 'who') && ismethod(value, 'get'));
         end
     end
 end

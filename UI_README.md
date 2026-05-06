@@ -45,6 +45,22 @@ out.Station_Pepu.time
 out.Station_Pepu.signals.values
 ```
 
+如果 `.mat` 文件中保存的是 `Simulink.SimulationOutput` 对象，例如顶层变量为 `out`，界面会自动执行类似下面的扫描逻辑：
+
+```matlab
+names = who(out);
+signal = out.get(name);
+```
+
+因此 `out.mat` 中的 `out.Ids`、`out.Iqs`、`out.Uds`、`out.Uqs`、`out.i2a`、`out.uoa` 等只要包含：
+
+```matlab
+signal.time
+signal.signals.values
+```
+
+都会自动出现在“信号变量 / Signal”下拉框中。
+
 如果 `signals.values` 是多列矩阵，界面会把每一列识别为一个通道，可以在“通道 / Channel”下拉框中选择。
 
 ### 示波器 CSV 文件
