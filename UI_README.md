@@ -5,6 +5,12 @@
 在 MATLAB 当前文件夹切换到本工程目录后运行：
 
 ```matlab
+runFourierAnalysisApp
+```
+
+`runFourierAnalysisApp` 会自动把本工程目录加入 MATLAB path，然后启动 `FourierAnalysisApp`。如果已经确认 MATLAB 当前目录就是本工程目录，也可以直接运行：
+
+```matlab
 FourierAnalysisApp
 ```
 
@@ -13,7 +19,13 @@ FourierAnalysisApp
 ```matlab
 close all force
 clear classes
-FourierAnalysisApp
+runFourierAnalysisApp
+```
+
+如果需要生成 MATLAB Apps 面板可安装的 `.mlappinstall`，运行：
+
+```matlab
+packageFourierAnalysisApp
 ```
 
 ## 中英文切换

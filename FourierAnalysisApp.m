@@ -1,4 +1,4 @@
-classdef FourierAnalysisApp < handle
+classdef FourierAnalysisApp < matlab.apps.AppBase
 %FOURIERANALYSISAPP MATLAB UI for Simulink-style FFT analysis.
 %
 % Run from MATLAB with:
@@ -68,17 +68,37 @@ classdef FourierAnalysisApp < handle
         MaxSpectrumLinePoints double = 20000
     end
 
-    methods
+    methods (Access = public)
         function app = FourierAnalysisApp()
             app.createComponents();
-            app.updateLanguageTexts();
-            app.Figure.UserData = app;
+            registerApp(app, app.Figure);
+            runStartupFcn(app, @(app) startupFcn(app));
+
+            if nargout == 0
+                clear app
+            end
+        end
+
+        function delete(app)
+            if ~isempty(app.Figure) && isvalid(app.Figure)
+                app.Figure.UserData = [];
+                app.Figure.CloseRequestFcn = [];
+                delete(app.Figure);
+            end
         end
     end
 
     methods (Access = private)
+        function startupFcn(app)
+            app.updateLanguageTexts();
+            app.Figure.UserData = app;
+            app.Figure.Visible = 'on';
+        end
+
         function createComponents(app)
             app.Figure = uifigure('Name', app.text('app_title'), ...
+                'Visible', 'off', ...
+                'CloseRequestFcn', @(~, ~) delete(app), ...
                 'Position', [100 80 1240 760]);
 
             mainGrid = uigridlayout(app.Figure, [1 2]);
