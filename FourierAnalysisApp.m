@@ -14,6 +14,10 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
         LanguageDropDown
         PlotDetailLabel
         PlotDetailDropDown
+        GridEnableCheckBox
+        GridStyleLabel
+        GridStyleDropDown
+        BoxEnableCheckBox
         FileLabel
         SignalLabel
         SignalDropDown
@@ -29,6 +33,7 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
         MaxFreqEdit
         AnalyzeButton
         ExportButton
+        ExportFigureButton
         ZoomEnableCheckBox
         ZoomPanel
         Zoom1StartEdit
@@ -63,6 +68,9 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
         LastStatusKey char = 'select_file'
         LastStatusArgs cell = {}
         PlotDetailMode char = 'fast'
+        GridEnabled logical = true
+        GridLineStyle char = '-'
+        BoxEnabled logical = true
         ZoomEnabled logical = false
         MaxTimePlotPoints double = 20000
         FineTimePlotPoints double = 200000
@@ -87,6 +95,28 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
                 app.Figure.CloseRequestFcn = [];
                 delete(app.Figure);
             end
+        end
+
+        function loadDataFileFromPath(app, filePath)
+            app.loadDataFilePath(filePath);
+        end
+
+        function setAppLanguage(app, languageValue)
+            languageValue = char(languageValue);
+            if any(strcmpi(languageValue, {'en', 'english'}))
+                app.LanguageDropDown.Value = 'English';
+            else
+                app.LanguageDropDown.Value = '中文';
+            end
+            app.onLanguageChanged();
+        end
+
+        function runCurrentAnalysis(app)
+            app.analyzeSignal();
+        end
+
+        function fig = exportCurrentAnalysisFigure(app)
+            fig = app.exportAnalysisFigure();
         end
     end
 
@@ -142,9 +172,9 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
             app.ControlPanel.Layout.Row = 1;
             app.ControlPanel.Layout.Column = 1;
 
-            app.ControlGrid = uigridlayout(app.ControlPanel, [17 2]);
+            app.ControlGrid = uigridlayout(app.ControlPanel, [21 2]);
             app.ControlGrid.ColumnWidth = {95, '1x'};
-            app.ControlGrid.RowHeight = {34, 28, 34, 34, 34, 34, 34, 34, 34, 34, 34, 34, 120, 34, 0, 0, 52};
+            app.ControlGrid.RowHeight = {34, 28, 34, 34, 34, 34, 34, 34, 34, 34, 30, 34, 30, 34, 34, 34, 34, 0, 0, 120, 52};
             app.ControlGrid.Padding = [12 12 12 12];
             app.ControlGrid.RowSpacing = 8;
 
@@ -233,45 +263,75 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
             app.PlotDetailDropDown.Layout.Row = 10;
             app.PlotDetailDropDown.Layout.Column = 2;
 
+            app.GridEnableCheckBox = uicheckbox(app.ControlGrid, ...
+                'Text', app.text('enable_grid_checkbox'), ...
+                'Value', true, ...
+                'ValueChangedFcn', @(~, ~) app.onAxesFormatChanged());
+            app.GridEnableCheckBox.Layout.Row = 11;
+            app.GridEnableCheckBox.Layout.Column = [1 2];
+
+            app.GridStyleLabel = uilabel(app.ControlGrid, 'Text', app.text('grid_style'));
+            app.GridStyleLabel.Layout.Row = 12;
+            app.GridStyleLabel.Layout.Column = 1;
+
+            app.GridStyleDropDown = uidropdown(app.ControlGrid, ...
+                'Items', app.gridStyleItems(), ...
+                'ValueChangedFcn', @(~, ~) app.onAxesFormatChanged());
+            app.GridStyleDropDown.Layout.Row = 12;
+            app.GridStyleDropDown.Layout.Column = 2;
+
+            app.BoxEnableCheckBox = uicheckbox(app.ControlGrid, ...
+                'Text', app.text('enable_box_checkbox'), ...
+                'Value', true, ...
+                'ValueChangedFcn', @(~, ~) app.onAxesFormatChanged());
+            app.BoxEnableCheckBox.Layout.Row = 13;
+            app.BoxEnableCheckBox.Layout.Column = [1 2];
+
             app.AnalyzeButton = uibutton(app.ControlGrid, 'Text', app.text('analyze_button'), ...
                 'Enable', 'off', ...
                 'ButtonPushedFcn', @(~, ~) app.analyzeSignal());
-            app.AnalyzeButton.Layout.Row = 11;
+            app.AnalyzeButton.Layout.Row = 14;
             app.AnalyzeButton.Layout.Column = [1 2];
 
             app.ExportButton = uibutton(app.ControlGrid, 'Text', app.text('export_button'), ...
                 'Enable', 'off', ...
                 'ButtonPushedFcn', @(~, ~) app.exportResult());
-            app.ExportButton.Layout.Row = 12;
+            app.ExportButton.Layout.Row = 15;
             app.ExportButton.Layout.Column = [1 2];
 
-            app.ResultTable = uitable(app.ControlGrid, ...
-                'ColumnName', {app.text('table_item'), app.text('table_value')}, ...
-                'Data', cell(0, 2));
-            app.ResultTable.Layout.Row = 13;
-            app.ResultTable.Layout.Column = [1 2];
+            app.ExportFigureButton = uibutton(app.ControlGrid, 'Text', app.text('export_figure_button'), ...
+                'Enable', 'off', ...
+                'ButtonPushedFcn', @(~, ~) app.exportAnalysisFigure());
+            app.ExportFigureButton.Layout.Row = 16;
+            app.ExportFigureButton.Layout.Column = [1 2];
 
             app.ZoomEnableCheckBox = uicheckbox(app.ControlGrid, ...
                 'Text', app.text('enable_zoom_checkbox'), ...
                 'Value', false, ...
                 'ValueChangedFcn', @(~, ~) app.onZoomEnableChanged());
-            app.ZoomEnableCheckBox.Layout.Row = 14;
+            app.ZoomEnableCheckBox.Layout.Row = 17;
             app.ZoomEnableCheckBox.Layout.Column = [1 2];
 
             app.ZoomPanel = uipanel(app.ControlGrid, 'Title', app.text('zoom_panel_title'));
-            app.ZoomPanel.Layout.Row = 15;
+            app.ZoomPanel.Layout.Row = 18;
             app.ZoomPanel.Layout.Column = [1 2];
             app.createZoomControls(app.ZoomPanel);
 
             app.DrawZoomButton = uibutton(app.ControlGrid, 'Text', app.text('draw_zoom_button'), ...
                 'Enable', 'off', ...
                 'ButtonPushedFcn', @(~, ~) app.plotZoomView());
-            app.DrawZoomButton.Layout.Row = 16;
+            app.DrawZoomButton.Layout.Row = 19;
             app.DrawZoomButton.Layout.Column = [1 2];
+
+            app.ResultTable = uitable(app.ControlGrid, ...
+                'ColumnName', {app.text('table_item'), app.text('table_value')}, ...
+                'Data', cell(0, 2));
+            app.ResultTable.Layout.Row = 20;
+            app.ResultTable.Layout.Column = [1 2];
 
             app.StatusLabel = uilabel(app.ControlGrid, 'Text', app.text('select_file'), ...
                 'WordWrap', 'on');
-            app.StatusLabel.Layout.Row = 17;
+            app.StatusLabel.Layout.Row = 21;
             app.StatusLabel.Layout.Column = [1 2];
             app.updateZoomVisibility();
 
@@ -286,11 +346,11 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
 
             app.TimeAxes = uiaxes(plotGrid);
             app.TimeAxes.Layout.Row = 1;
-            grid(app.TimeAxes, 'on');
+            app.applyAxesFormat(app.TimeAxes);
 
             app.SpectrumAxes = uiaxes(plotGrid);
             app.SpectrumAxes.Layout.Row = 2;
-            grid(app.SpectrumAxes, 'on');
+            app.applyAxesFormat(app.SpectrumAxes);
         end
 
         function createZoomControls(app, parent)
@@ -368,13 +428,13 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
 
             rowHeights = app.ControlGrid.RowHeight;
             if app.ZoomEnabled
-                rowHeights{15} = 380;
-                rowHeights{16} = 34;
+                rowHeights{18} = 380;
+                rowHeights{19} = 34;
                 app.ZoomPanel.Visible = 'on';
                 app.DrawZoomButton.Visible = 'on';
             else
-                rowHeights{15} = 0;
-                rowHeights{16} = 0;
+                rowHeights{18} = 0;
+                rowHeights{19} = 0;
                 app.ZoomPanel.Visible = 'off';
                 app.DrawZoomButton.Visible = 'off';
             end
@@ -393,10 +453,20 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
             end
 
             fullPath = fullfile(path, file);
-            [~, ~, extension] = fileparts(file);
+            app.loadDataFilePath(fullPath);
+        end
+
+        function loadDataFilePath(app, fullPath)
+            fullPath = char(fullPath);
+            if ~isfile(fullPath)
+                error('FourierAnalysisApp:FileNotFound', 'File not found: %s', fullPath);
+            end
+            [~, file, extension] = fileparts(fullPath);
+            file = [file extension];
             app.LoadButton.Enable = 'off';
             app.AnalyzeButton.Enable = 'off';
             app.ExportButton.Enable = 'off';
+            app.ExportFigureButton.Enable = 'off';
             app.setStatus('loading_file');
             drawnow('limitrate');
             cleanup = onCleanup(@() app.restoreActionButtons());
@@ -421,6 +491,7 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
             app.Result = struct();
             app.ResultTable.Data = cell(0, 2);
             app.ExportButton.Enable = 'off';
+            app.ExportFigureButton.Enable = 'off';
 
             if isempty(app.SignalCandidates)
                 app.SignalDropDown.Items = {app.text('no_supported_signal')};
@@ -475,6 +546,7 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
             app.Result = struct();
             app.ResultTable.Data = cell(0, 2);
             app.ExportButton.Enable = 'off';
+            app.ExportFigureButton.Enable = 'off';
 
             channelCount = size(waveform, 2);
             channelItems = arrayfun(@(k) sprintf('%d', k), 1:channelCount, 'UniformOutput', false);
@@ -496,6 +568,7 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
             app.Result = struct();
             app.ResultTable.Data = cell(0, 2);
             app.ExportButton.Enable = 'off';
+            app.ExportFigureButton.Enable = 'off';
             app.plotPreview();
             cla(app.SpectrumAxes);
             app.formatSpectrumAxes('empty');
@@ -509,6 +582,7 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
 
             app.AnalyzeButton.Enable = 'off';
             app.ExportButton.Enable = 'off';
+            app.ExportFigureButton.Enable = 'off';
             app.setStatus('analysis_running');
             drawnow('limitrate');
             cleanup = onCleanup(@() app.restoreActionButtons());
@@ -529,6 +603,7 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
             app.plotResult(waveform);
             app.updateResultTable();
             app.ExportButton.Enable = 'on';
+            app.ExportFigureButton.Enable = 'on';
             app.setStatus('analysis_done');
             clear cleanup;
             app.restoreActionButtons();
@@ -540,6 +615,49 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
             end
             assignin('base', 'FFT_UI_Result', app.Result);
             app.setStatus('export_done');
+        end
+
+        function fig = exportAnalysisFigure(app)
+            if ~app.HasResult || isempty(app.CurrentTime) || isempty(app.CurrentWaveform)
+                app.setStatus('load_select_signal');
+                fig = [];
+                return;
+            end
+
+            channelIndex = app.currentChannelIndex();
+            waveform = app.CurrentWaveform(:, channelIndex);
+            signalName = app.currentSignalName(channelIndex);
+            result = app.Result;
+
+            fig = figure('Name', app.text('export_figure_title'), ...
+                'Color', 'white', ...
+                'Position', [520 160 980 720]);
+            layout = tiledlayout(fig, 2, 1, ...
+                'Padding', 'compact', ...
+                'TileSpacing', 'compact');
+
+            timeAxes = nexttile(layout, 1);
+            app.drawTimeResult(timeAxes, waveform);
+            app.setStandaloneAxesFormat(timeAxes);
+            app.setStandaloneTitle(timeAxes, sprintf('%s - %s', app.text('time_title'), signalName));
+            app.setStandaloneXLabel(timeAxes, app.text('time_xlabel'));
+            app.setStandaloneYLabel(timeAxes, app.text('mag_ylabel'));
+            app.setStandaloneLegend(timeAxes, {app.text('legend_signal'), app.text('legend_window')});
+
+            spectrumAxes = nexttile(layout, 2);
+            app.drawSpectrumResult(spectrumAxes);
+            app.setStandaloneAxesFormat(spectrumAxes);
+            app.setStandaloneTitle(spectrumAxes, app.text('spectrum_result_title', ...
+                result.fundamentalFrequency, result.fundamentalMagnitude, result.thd * 100));
+            app.setStandaloneXLabel(spectrumAxes, app.text('freq_xlabel'));
+            app.setStandaloneYLabel(spectrumAxes, app.text('percent_ylabel'));
+
+            if isdeployed
+                app.setStatus('figure_export_done_deployed');
+            else
+                assignin('base', 'FFT_UI_Figure', fig);
+                app.setStatus('figure_export_done');
+            end
         end
 
         function onLanguageChanged(app)
@@ -573,6 +691,37 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
             end
         end
 
+        function onAxesFormatChanged(app)
+            app.GridEnabled = logical(app.GridEnableCheckBox.Value);
+            app.BoxEnabled = logical(app.BoxEnableCheckBox.Value);
+
+            items = app.gridStyleItems();
+            if strcmp(app.GridStyleDropDown.Value, items{2})
+                app.GridLineStyle = '--';
+            else
+                app.GridLineStyle = '-';
+            end
+
+            if app.GridEnabled
+                app.GridStyleDropDown.Enable = 'on';
+                app.GridStyleLabel.Enable = 'on';
+            else
+                app.GridStyleDropDown.Enable = 'off';
+                app.GridStyleLabel.Enable = 'off';
+            end
+
+            if app.HasResult
+                channelIndex = app.currentChannelIndex();
+                app.plotResult(app.CurrentWaveform(:, channelIndex));
+            elseif ~isempty(app.CurrentTime)
+                app.plotPreview();
+                cla(app.SpectrumAxes);
+                app.formatSpectrumAxes('empty');
+            else
+                app.resetPlots();
+            end
+        end
+
         function onZoomEnableChanged(app)
             app.ZoomEnabled = logical(app.ZoomEnableCheckBox.Value);
             app.updateZoomVisibility();
@@ -589,6 +738,18 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
             app.PlotDetailLabel.Text = app.text('plot_detail');
             app.PlotDetailDropDown.Items = app.plotDetailItems();
             app.PlotDetailDropDown.Value = app.plotDetailValue();
+            app.GridEnableCheckBox.Text = app.text('enable_grid_checkbox');
+            app.GridStyleLabel.Text = app.text('grid_style');
+            app.GridStyleDropDown.Items = app.gridStyleItems();
+            app.GridStyleDropDown.Value = app.gridStyleValue();
+            app.BoxEnableCheckBox.Text = app.text('enable_box_checkbox');
+            if app.GridEnabled
+                app.GridStyleLabel.Enable = 'on';
+                app.GridStyleDropDown.Enable = 'on';
+            else
+                app.GridStyleLabel.Enable = 'off';
+                app.GridStyleDropDown.Enable = 'off';
+            end
             app.SignalLabel.Text = app.text('signal_var');
             app.ChannelLabel.Text = app.text('channel');
             app.FundamentalLabel.Text = app.text('fundamental_hz');
@@ -597,6 +758,7 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
             app.MaxFreqLabel.Text = app.text('max_freq_hz');
             app.AnalyzeButton.Text = app.text('analyze_button');
             app.ExportButton.Text = app.text('export_button');
+            app.ExportFigureButton.Text = app.text('export_figure_button');
             app.DrawZoomButton.Text = app.text('draw_zoom_button');
             app.AboutButton.Text = app.text('about_button');
             app.ResultTable.ColumnName = {app.text('table_item'), app.text('table_value')};
@@ -636,45 +798,53 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
             title(app.TimeAxes, app.text('time_preview'));
             xlabel(app.TimeAxes, app.text('time_xlabel'));
             ylabel(app.TimeAxes, app.text('mag_ylabel'));
-            grid(app.TimeAxes, 'on');
+            app.applyAxesFormat(app.TimeAxes);
         end
 
         function plotResult(app, waveform)
-            result = app.Result;
-
             cla(app.TimeAxes);
+            app.drawTimeResult(app.TimeAxes, waveform);
+
+            cla(app.SpectrumAxes);
+            app.drawSpectrumResult(app.SpectrumAxes);
+        end
+
+        function drawTimeResult(app, axesHandle, waveform)
+            result = app.Result;
             [plotTime, plotWaveform] = FourierAnalysisApp.downsampleForPlot( ...
                 app.CurrentTime, waveform, app.timePlotPointLimit());
             [windowTime, windowWaveform] = FourierAnalysisApp.downsampleForPlot( ...
                 result.windowTime, result.windowWaveform, app.timePlotPointLimit());
-            plot(app.TimeAxes, plotTime, plotWaveform, 'Color', [0.1 0.35 0.8]);
-            hold(app.TimeAxes, 'on');
-            plot(app.TimeAxes, windowTime, windowWaveform, ...
+            plot(axesHandle, plotTime, plotWaveform, 'Color', [0.1 0.35 0.8]);
+            hold(axesHandle, 'on');
+            plot(axesHandle, windowTime, windowWaveform, ...
                 'Color', [0.85 0.15 0.1], 'LineWidth', 1.2);
-            hold(app.TimeAxes, 'off');
-            title(app.TimeAxes, app.text('time_title'));
-            xlabel(app.TimeAxes, app.text('time_xlabel'));
-            ylabel(app.TimeAxes, app.text('mag_ylabel'));
-            legend(app.TimeAxes, {app.text('legend_signal'), app.text('legend_window')}, ...
+            hold(axesHandle, 'off');
+            title(axesHandle, app.text('time_title'));
+            xlabel(axesHandle, app.text('time_xlabel'));
+            ylabel(axesHandle, app.text('mag_ylabel'));
+            legend(axesHandle, {app.text('legend_signal'), app.text('legend_window')}, ...
                 'Location', 'best');
-            grid(app.TimeAxes, 'on');
+            app.applyAxesFormat(axesHandle);
+        end
 
-            cla(app.SpectrumAxes);
+        function drawSpectrumResult(app, axesHandle)
+            result = app.Result;
             if numel(result.displayFreqs) <= app.MaxSpectrumBarCount
-                bar(app.SpectrumAxes, result.displayFreqs, result.displayPercent, ...
+                bar(axesHandle, result.displayFreqs, result.displayPercent, ...
                     'FaceColor', [0.2 0.45 0.75], 'EdgeColor', 'none');
             else
                 [plotFreqs, plotPercent] = FourierAnalysisApp.compressSpectrumForPlot( ...
                     result.displayFreqs, result.displayPercent, app.MaxSpectrumLinePoints);
-                plot(app.SpectrumAxes, plotFreqs, plotPercent, ...
+                plot(axesHandle, plotFreqs, plotPercent, ...
                     'Color', [0.2 0.45 0.75], 'LineWidth', 1);
             end
-            title(app.SpectrumAxes, app.text('spectrum_result_title', ...
+            title(axesHandle, app.text('spectrum_result_title', ...
                 result.fundamentalFrequency, result.fundamentalMagnitude, result.thd * 100));
-            xlabel(app.SpectrumAxes, app.text('freq_xlabel'));
-            ylabel(app.SpectrumAxes, app.text('percent_ylabel'));
-            xlim(app.SpectrumAxes, [0 max(result.displayFreqs)]);
-            grid(app.SpectrumAxes, 'on');
+            xlabel(axesHandle, app.text('freq_xlabel'));
+            ylabel(axesHandle, app.text('percent_ylabel'));
+            xlim(axesHandle, [0 max(result.displayFreqs)]);
+            app.applyAxesFormat(axesHandle);
         end
 
         function formatSpectrumAxes(app, mode)
@@ -683,7 +853,7 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
             end
             xlabel(app.SpectrumAxes, app.text('freq_xlabel'));
             ylabel(app.SpectrumAxes, app.text('percent_ylabel'));
-            grid(app.SpectrumAxes, 'on');
+            app.applyAxesFormat(app.SpectrumAxes);
         end
 
         function plotZoomView(app)
@@ -728,12 +898,11 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
                 app.drawZoomBoundary(overviewAxes, zoomRanges(k, 2));
             end
             hold(overviewAxes, 'off');
-            title(overviewAxes, app.mixedFontText(sprintf('%s - %s', app.text('zoom_overview_title'), signalName)), ...
-                'Interpreter', 'tex');
-            xlabel(overviewAxes, app.mixedFontText(app.text('time_xlabel')), 'Interpreter', 'tex');
-            ylabel(overviewAxes, app.mixedFontText(app.text('mag_ylabel')), 'Interpreter', 'tex');
             xlim(overviewAxes, [time(1), time(end)]);
             app.setStandaloneAxesFormat(overviewAxes);
+            app.setStandaloneTitle(overviewAxes, sprintf('%s - %s', app.text('zoom_overview_title'), signalName));
+            app.setStandaloneXLabel(overviewAxes, app.text('time_xlabel'));
+            app.setStandaloneYLabel(overviewAxes, app.text('mag_ylabel'));
 
             for k = 1:zoomCount
                 zoomAxes = subplot('Position', zoomPositions(k, :));
@@ -741,15 +910,14 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
                 [zoomTime, zoomWaveform] = FourierAnalysisApp.downsampleForPlot( ...
                     time(idx), waveform(idx), app.timePlotPointLimit());
                 plot(zoomAxes, zoomTime, zoomWaveform, 'Color', [0.1 0.35 0.8]);
-                title(zoomAxes, app.mixedFontText(app.text('zoom_subplot_title', k, zoomRanges(k, 1), zoomRanges(k, 2))), ...
-                    'Interpreter', 'tex');
-                xlabel(zoomAxes, app.mixedFontText(app.text('time_xlabel')), 'Interpreter', 'tex');
-                ylabel(zoomAxes, app.mixedFontText(app.text('mag_ylabel')), 'Interpreter', 'tex');
                 xlim(zoomAxes, zoomRanges(k, :));
                 if ~isempty(yLimits{k})
                     ylim(zoomAxes, yLimits{k});
                 end
                 app.setStandaloneAxesFormat(zoomAxes);
+                app.setStandaloneTitle(zoomAxes, app.text('zoom_subplot_title', k, zoomRanges(k, 1), zoomRanges(k, 2)));
+                app.setStandaloneXLabel(zoomAxes, app.text('time_xlabel'));
+                app.setStandaloneYLabel(zoomAxes, app.text('mag_ylabel'));
             end
         end
 
@@ -758,7 +926,7 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
             title(app.TimeAxes, app.text('time_title'));
             xlabel(app.TimeAxes, app.text('time_xlabel'));
             ylabel(app.TimeAxes, app.text('mag_ylabel'));
-            grid(app.TimeAxes, 'on');
+            app.applyAxesFormat(app.TimeAxes);
 
             cla(app.SpectrumAxes);
             app.formatSpectrumAxes('empty');
@@ -913,16 +1081,78 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
                 'Color', 'k', 'LineStyle', '--', 'LineWidth', 0.9);
         end
 
-        function setStandaloneAxesFormat(~, axesHandle)
-            grid(axesHandle, 'on');
-            box(axesHandle, 'on');
+        function setStandaloneTitle(app, axesHandle, textValue)
+            [displayText, interpreter] = app.standaloneText(textValue);
+            textObject = title(axesHandle, displayText, 'Interpreter', interpreter);
+            textObject.FontName = app.standaloneFontName(textValue);
+        end
+
+        function setStandaloneXLabel(app, axesHandle, textValue)
+            [displayText, interpreter] = app.standaloneText(textValue);
+            textObject = xlabel(axesHandle, displayText, 'Interpreter', interpreter);
+            textObject.FontName = app.standaloneFontName(textValue);
+        end
+
+        function setStandaloneYLabel(app, axesHandle, textValue)
+            [displayText, interpreter] = app.standaloneText(textValue);
+            textObject = ylabel(axesHandle, displayText, 'Interpreter', interpreter);
+            textObject.FontName = app.standaloneFontName(textValue);
+        end
+
+        function setStandaloneLegend(app, axesHandle, textValues)
+            [displayTexts, interpreter] = app.standaloneTextList(textValues);
+            legendObject = legend(axesHandle, displayTexts, 'Location', 'best', 'Interpreter', interpreter);
+            legendObject.FontName = app.standaloneFontName(strjoin(string(textValues), ' '));
+        end
+
+        function setStandaloneAxesFormat(app, axesHandle)
+            app.applyAxesFormat(axesHandle);
             set(axesHandle, 'LineWidth', 0.75, ...
                 'FontName', 'Times New Roman', ...
                 'FontSize', 12.5, ...
-                'GridLineStyle', ':', ...
                 'GridAlpha', 0.4, ...
                 'GridColor', [0.1, 0.1, 0.1]);
             set(ancestor(axesHandle, 'figure'), 'Color', 'white');
+        end
+
+        function applyAxesFormat(app, axesHandle)
+            if app.GridEnabled
+                grid(axesHandle, 'on');
+                axesHandle.GridLineStyle = app.GridLineStyle;
+                axesHandle.GridAlpha = 0.4;
+                axesHandle.GridColor = [0.1, 0.1, 0.1];
+            else
+                grid(axesHandle, 'off');
+            end
+
+            if app.BoxEnabled
+                box(axesHandle, 'on');
+            else
+                box(axesHandle, 'off');
+            end
+            axesHandle.LineWidth = 0.75;
+        end
+
+        function [displayText, interpreter] = standaloneText(~, textValue)
+            textValue = char(textValue);
+            displayText = textValue;
+            interpreter = 'none';
+        end
+
+        function [displayTexts, interpreter] = standaloneTextList(~, textValues)
+            displayTexts = cell(size(textValues));
+            for k = 1:numel(textValues)
+                displayTexts{k} = char(textValues{k});
+            end
+            interpreter = 'none';
+        end
+
+        function fontName = standaloneFontName(~, textValue)
+            if FourierAnalysisApp.hasNonAsciiText(textValue)
+                fontName = FourierAnalysisApp.preferredChineseFont();
+            else
+                fontName = 'Times New Roman';
+            end
         end
 
         function positions = zoomAxesPositions(~, zoomCount)
@@ -941,33 +1171,6 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
                         0.68 0.12 0.26 0.30
                         ];
             end
-        end
-
-        function formatted = mixedFontText(~, textValue)
-            textValue = char(textValue);
-            if isempty(textValue)
-                formatted = '';
-                return;
-            end
-
-            formatted = '';
-            currentIsChinese = [];
-            segment = '';
-            for k = 1:numel(textValue)
-                ch = textValue(k);
-                isChinese = double(ch) > 127;
-                if isempty(currentIsChinese)
-                    currentIsChinese = isChinese;
-                    segment = ch;
-                elseif isChinese == currentIsChinese
-                    segment = [segment ch]; %#ok<AGROW>
-                else
-                    formatted = [formatted FourierAnalysisApp.fontSegment(segment, currentIsChinese)]; %#ok<AGROW>
-                    currentIsChinese = isChinese;
-                    segment = ch;
-                end
-            end
-            formatted = [formatted FourierAnalysisApp.fontSegment(segment, currentIsChinese)];
         end
 
         function values = zoomFieldValues(app)
@@ -1051,6 +1254,22 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
             end
         end
 
+        function items = gridStyleItems(app)
+            items = {
+                app.text('grid_style_solid')
+                app.text('grid_style_dashed')
+                };
+        end
+
+        function value = gridStyleValue(app)
+            items = app.gridStyleItems();
+            if strcmp(app.GridLineStyle, '--')
+                value = items{2};
+            else
+                value = items{1};
+            end
+        end
+
         function setStatus(app, key, varargin)
             app.LastStatusKey = key;
             app.LastStatusArgs = varargin;
@@ -1073,8 +1292,10 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
 
             if app.HasResult
                 app.ExportButton.Enable = 'on';
+                app.ExportFigureButton.Enable = 'on';
             else
                 app.ExportButton.Enable = 'off';
+                app.ExportFigureButton.Enable = 'off';
             end
         end
 
@@ -1185,6 +1406,16 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
                     template = '精细 20万点';
                 case 'plot_detail_full'
                     template = '完整 全部点';
+                case 'enable_grid_checkbox'
+                    template = '显示网格';
+                case 'grid_style'
+                    template = '网格线';
+                case 'grid_style_solid'
+                    template = '实线';
+                case 'grid_style_dashed'
+                    template = '虚线';
+                case 'enable_box_checkbox'
+                    template = '显示图外框';
                 case 'enable_zoom_checkbox'
                     template = '启用波形局部放大';
                 case 'zoom_panel_title'
@@ -1263,6 +1494,8 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
                     template = '开始分析';
                 case 'export_button'
                     template = '导出结果到工作区';
+                case 'export_figure_button'
+                    template = '导出 MATLAB Figure';
                 case 'table_item'
                     template = '项目';
                 case 'table_value'
@@ -1295,6 +1528,12 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
                     template = '分析完成。';
                 case 'export_done'
                     template = '结果已导出到工作区变量 FFT_UI_Result。';
+                case 'figure_export_done'
+                    template = '图已导出到 MATLAB figure，并保存为工作区变量 FFT_UI_Figure。';
+                case 'figure_export_done_deployed'
+                    template = '图已导出为 MATLAB figure 窗口，可在该窗口中继续保存或编辑。';
+                case 'export_figure_title'
+                    template = 'FFT 分析结果';
                 case 'file_load_failed'
                     template = '文件加载失败';
                 case 'link_open_failed'
@@ -1368,6 +1607,16 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
                     template = 'Fine 200k pts';
                 case 'plot_detail_full'
                     template = 'Full all pts';
+                case 'enable_grid_checkbox'
+                    template = 'Show Grid';
+                case 'grid_style'
+                    template = 'Grid Line';
+                case 'grid_style_solid'
+                    template = 'Solid';
+                case 'grid_style_dashed'
+                    template = 'Dashed';
+                case 'enable_box_checkbox'
+                    template = 'Show Plot Box';
                 case 'enable_zoom_checkbox'
                     template = 'Enable Waveform Zoom';
                 case 'zoom_panel_title'
@@ -1446,6 +1695,8 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
                     template = 'Analyze';
                 case 'export_button'
                     template = 'Export Result to Workspace';
+                case 'export_figure_button'
+                    template = 'Export MATLAB Figure';
                 case 'table_item'
                     template = 'Item';
                 case 'table_value'
@@ -1478,6 +1729,12 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
                     template = 'Analysis complete.';
                 case 'export_done'
                     template = 'Result exported to workspace variable FFT_UI_Result.';
+                case 'figure_export_done'
+                    template = 'Figure exported to MATLAB figure and workspace variable FFT_UI_Figure.';
+                case 'figure_export_done_deployed'
+                    template = 'Figure exported to a MATLAB figure window for saving or further editing.';
+                case 'export_figure_title'
+                    template = 'FFT Analysis Result';
                 case 'file_load_failed'
                     template = 'File Load Failed';
                 case 'link_open_failed'
@@ -1669,28 +1926,38 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
             yOut = y(indexes);
         end
 
-        function formatted = fontSegment(segment, isChinese)
-            if isChinese
-                fontName = '宋体';
-            else
-                fontName = 'Times New Roman';
-            end
-            escaped = FourierAnalysisApp.escapeTexLiteral(segment);
-            formatted = sprintf('\\fontname{%s}%s', fontName, escaped);
+        function hasText = hasNonAsciiText(textValue)
+            hasText = any(double(char(textValue)) > 127);
         end
 
-        function escaped = escapeTexLiteral(textValue)
-            escaped = char(textValue);
-            replacements = {
-                '{', '\{'
-                '}', '\}'
-                '_', '\_'
-                '^', '\^{}'
-                '%', '\%'
-                };
-            for k = 1:size(replacements, 1)
-                escaped = strrep(escaped, replacements{k, 1}, replacements{k, 2});
+        function fontName = preferredChineseFont()
+            persistent cachedFontName
+            if ~isempty(cachedFontName)
+                fontName = cachedFontName;
+                return;
             end
+
+            preferredFonts = {
+                'Microsoft YaHei UI'
+                'Microsoft YaHei'
+                'SimSun'
+                'SimHei'
+                'NSimSun'
+                'Arial Unicode MS'
+                };
+            try
+                availableFonts = listfonts;
+                match = find(ismember(preferredFonts, availableFonts), 1);
+            catch
+                match = [];
+            end
+
+            if isempty(match)
+                cachedFontName = 'Helvetica';
+            else
+                cachedFontName = preferredFonts{match};
+            end
+            fontName = cachedFontName;
         end
 
         function value = getByPath(data, path)
