@@ -632,11 +632,9 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
             fig = figure('Name', app.text('export_figure_title'), ...
                 'Color', 'white', ...
                 'Position', [520 160 980 720]);
-            layout = tiledlayout(fig, 2, 1, ...
-                'Padding', 'compact', ...
-                'TileSpacing', 'compact');
 
-            timeAxes = nexttile(layout, 1);
+            timeAxes = axes('Parent', fig, 'Units', 'normalized', ...
+                'Position', [0.08 0.58 0.88 0.33]);
             app.drawTimeResult(timeAxes, waveform);
             app.setStandaloneAxesFormat(timeAxes);
             app.setStandaloneTitle(timeAxes, sprintf('%s - %s', app.text('time_title'), signalName));
@@ -644,7 +642,8 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
             app.setStandaloneYLabel(timeAxes, app.text('mag_ylabel'));
             app.setStandaloneLegend(timeAxes, {app.text('legend_signal'), app.text('legend_window')});
 
-            spectrumAxes = nexttile(layout, 2);
+            spectrumAxes = axes('Parent', fig, 'Units', 'normalized', ...
+                'Position', [0.08 0.11 0.88 0.33]);
             app.drawSpectrumResult(spectrumAxes);
             app.setStandaloneAxesFormat(spectrumAxes);
             app.setStandaloneTitle(spectrumAxes, app.text('spectrum_result_title', ...
