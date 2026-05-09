@@ -103,12 +103,30 @@ voltage = data.waveforms(:, 1);
 current = data.waveforms(:, 2);
 ```
 
+### 导出为 Simulink FFT Analyzer 可识别的 MAT
+
+加载 CSV 后，点击“导出 CSV 单路为 FFT MAT / Export One CSV Channel to FFT MAT”。如果 CSV 里有多路通道，例如 `CH1` 到 `CH4`，软件会先弹出列表，要求选择其中一路信号；导出的 MAT 文件只包含这一列信号。
+
+导出的结构参考 `i2abc.mat`：
+
+```matlab
+scope_CH1.time
+scope_CH1.signals.values
+scope_CH1.signals.dimensions
+scope_CH1.signals.label
+scope_CH1.blockName
+```
+
+其中 `signals.values` 是单列向量，`signals.dimensions = 1`，这样更贴近 Simulink/Powergui FFT Analyzer 对单路输入信号的识别习惯。
+
 ## 参数含义
 
 - `基频 Hz / Fundamental Hz`：基波频率，例如工频信号常用 `50`。
 - `周期数 / Cycles`：FFT 截取窗口包含的基波周期数，例如 `10` 表示截取 10 个 50 Hz 周期。
 - `起始时间 s / Start Time s`：从该时间点开始截取 FFT 窗口。
 - `最大频率 Hz / Max Freq Hz`：频谱图显示的最高频率。
+- `THD 算法 / THD Method`：`MATLAB 原版`按 FFT Analyzer 风格统计基波以上频率成分；`全频谱`统计除直流和基波外的全部显示/采样频谱成分。
+- `THD 最高频率 / Max THD Freq`：选择 `奈奎斯特频率` 时 THD 计算到采样允许的最高频率；选择 `同最大频率` 时 THD 只统计到“最大频率 Hz”。
 
 ## 输出结果
 
@@ -116,7 +134,7 @@ current = data.waveforms(:, 2);
 
 - 原始时域波形，并标出 FFT 截取窗口。
 - 以基波幅值为 100% 的单边幅频谱。
-- 采样频率、采样间隔、频率分辨率、FFT 点数、基波幅值和 THD。
+- 采样频率、采样间隔、频率分辨率、FFT 点数、基波幅值、当前 THD 算法和 THD。
 
 THD 计算采用 RMS 定义：
 
@@ -124,13 +142,23 @@ THD 计算采用 RMS 定义：
 THD = sqrt(sum(Vh_rms.^2)) / V1_rms
 ```
 
-其中 `V1_rms` 是基波有效值，`Vh_rms` 是 2 次及以上整数谐波的有效值。界面频谱和结果表显示单边谱幅值；THD 内部按 RMS 定义计算。由于同一正弦分量的 `RMS = amplitude / sqrt(2)`，同一批谐波用幅值比值和 RMS 比值在数值上等价。
+其中 `V1_rms` 是基波有效值，`Vh_rms` 是参与当前 THD 算法统计的频率成分有效值。界面频谱和结果表显示单边谱幅值；THD 内部按 RMS 定义计算。由于同一正弦分量的 `RMS = amplitude / sqrt(2)`，同一批频率成分用幅值比值和 RMS 比值在数值上等价。
 
 点击“导出结果到工作区 / Export Result to Workspace”后，结果会保存为 MATLAB 工作区变量：
 
 ```matlab
 FFT_UI_Result
 ```
+
+## 频谱局部放大
+
+完成 FFT 分析后，可以在“频谱局部放大 / Spectrum Inset”区域填写需要放大的频段，例如：
+
+```text
+40-100, 2400-2800
+```
+
+多个频段可用英文逗号、中文逗号、分号或换行分隔，一次最多显示 6 个局部放大区域。Y 轴下限和上限可以留空，留空时每个局部放大区域会按该频段内的最大幅值自动缩放；如果手动填写 Y 轴上下限，则所有局部放大区域使用同一套 Y 轴范围。点击“在频谱图中显示局部放大 / Show Spectrum Insets”后，局部放大框会直接叠加在当前频谱图上。
 
 ## 波形局部放大
 

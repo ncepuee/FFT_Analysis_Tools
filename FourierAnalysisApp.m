@@ -31,9 +31,14 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
         StartTimeEdit
         MaxFreqLabel
         MaxFreqEdit
+        ThdMethodLabel
+        ThdMethodDropDown
+        ThdMaxFreqLabel
+        ThdMaxFreqDropDown
         AnalyzeButton
         ExportButton
         ExportFigureButton
+        ExportMatButton
         ZoomEnableCheckBox
         ZoomPanel
         Zoom1StartEdit
@@ -49,6 +54,11 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
         Zoom3YMinEdit
         Zoom3YMaxEdit
         DrawZoomButton
+        SpectrumInsetPanel
+        SpectrumRangesEdit
+        SpectrumYMinEdit
+        SpectrumYMaxEdit
+        DrawSpectrumInsetButton
         StatusLabel
         FooterHtml
         AboutButton
@@ -58,6 +68,7 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
 
         Language char = 'zh'
         CurrentFileName char = ''
+        CurrentFilePath char = ''
         MatData struct = struct()
         CsvData struct = struct()
         SignalCandidates struct = struct('label', {}, 'path', {}, 'source', {}, 'column', {})
@@ -72,6 +83,11 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
         GridLineStyle char = '-'
         BoxEnabled logical = true
         ZoomEnabled logical = false
+        ThdMethod char = 'matlab'
+        ThdMaxFrequencyMode char = 'nyquist'
+        SpectrumInsetOverlays = []
+        SpectrumInsetRanges double = zeros(0, 2)
+        SpectrumInsetYLimits cell = {}
         MaxTimePlotPoints double = 20000
         FineTimePlotPoints double = 200000
         MaxSpectrumBarCount double = 5000
@@ -117,6 +133,26 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
 
         function fig = exportCurrentAnalysisFigure(app)
             fig = app.exportAnalysisFigure();
+        end
+
+        function outputPath = exportLoadedCsvToMatFile(app, outputPath, channelIndex)
+            if nargin < 3
+                channelIndex = 1;
+            end
+            outputPath = app.writeLoadedCsvToMat(outputPath, channelIndex);
+        end
+
+        function fig = drawSpectrumInsetFigure(app)
+            fig = app.plotSpectrumInsetView();
+        end
+
+        function setSpectrumInsetFrequencyRange(app, freqStart, freqEnd)
+            app.setSpectrumInsetFrequencyRanges([freqStart, freqEnd]);
+        end
+
+        function setSpectrumInsetFrequencyRanges(app, ranges)
+            app.setSpectrumInsetRangeText(ranges);
+            app.updateSpectrumInsetYLimits(ranges, true);
         end
     end
 
@@ -172,11 +208,16 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
             app.ControlPanel.Layout.Row = 1;
             app.ControlPanel.Layout.Column = 1;
 
-            app.ControlGrid = uigridlayout(app.ControlPanel, [21 2]);
+            app.ControlGrid = uigridlayout(app.ControlPanel, [26 2]);
             app.ControlGrid.ColumnWidth = {95, '1x'};
-            app.ControlGrid.RowHeight = {34, 28, 34, 34, 34, 34, 34, 34, 34, 34, 30, 34, 30, 34, 34, 34, 34, 0, 0, 120, 52};
+            app.ControlGrid.RowHeight = {34, 28, 34, 34, 34, 34, 34, 34, 34, 34, 34, 34, 30, 34, 30, 34, 34, 34, 34, 108, 34, 34, 0, 0, 120, 52};
             app.ControlGrid.Padding = [12 12 12 12];
             app.ControlGrid.RowSpacing = 8;
+            try
+                app.ControlGrid.Scrollable = 'on';
+            catch
+                app.ControlPanel.Scrollable = 'on';
+            end
 
             app.LoadButton = uibutton(app.ControlGrid, 'Text', app.text('load_button'), ...
                 'ButtonPushedFcn', @(~, ~) app.loadDataFile());
@@ -249,89 +290,128 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
             app.MaxFreqLabel.Layout.Column = 1;
 
             app.MaxFreqEdit = uieditfield(app.ControlGrid, 'numeric', ...
-                'Value', 2000, 'Limits', [eps Inf]);
+                'Value', 3000, 'Limits', [eps Inf]);
             app.MaxFreqEdit.Layout.Row = 9;
             app.MaxFreqEdit.Layout.Column = 2;
 
+            app.ThdMethodLabel = uilabel(app.ControlGrid, 'Text', app.text('thd_method'));
+            app.ThdMethodLabel.Layout.Row = 10;
+            app.ThdMethodLabel.Layout.Column = 1;
+
+            app.ThdMethodDropDown = uidropdown(app.ControlGrid, ...
+                'Items', app.thdMethodItems(), ...
+                'Value', app.thdMethodValue(), ...
+                'ValueChangedFcn', @(~, ~) app.onThdMethodChanged());
+            app.ThdMethodDropDown.Layout.Row = 10;
+            app.ThdMethodDropDown.Layout.Column = 2;
+
+            app.ThdMaxFreqLabel = uilabel(app.ControlGrid, 'Text', app.text('thd_max_frequency'));
+            app.ThdMaxFreqLabel.Layout.Row = 11;
+            app.ThdMaxFreqLabel.Layout.Column = 1;
+
+            app.ThdMaxFreqDropDown = uidropdown(app.ControlGrid, ...
+                'Items', app.thdMaxFrequencyItems(), ...
+                'Value', app.thdMaxFrequencyValue(), ...
+                'ValueChangedFcn', @(~, ~) app.onThdMaxFrequencyChanged());
+            app.ThdMaxFreqDropDown.Layout.Row = 11;
+            app.ThdMaxFreqDropDown.Layout.Column = 2;
+
             app.PlotDetailLabel = uilabel(app.ControlGrid, 'Text', app.text('plot_detail'));
-            app.PlotDetailLabel.Layout.Row = 10;
+            app.PlotDetailLabel.Layout.Row = 12;
             app.PlotDetailLabel.Layout.Column = 1;
 
             app.PlotDetailDropDown = uidropdown(app.ControlGrid, ...
                 'Items', app.plotDetailItems(), ...
                 'ValueChangedFcn', @(~, ~) app.onPlotDetailChanged());
-            app.PlotDetailDropDown.Layout.Row = 10;
+            app.PlotDetailDropDown.Layout.Row = 12;
             app.PlotDetailDropDown.Layout.Column = 2;
 
             app.GridEnableCheckBox = uicheckbox(app.ControlGrid, ...
                 'Text', app.text('enable_grid_checkbox'), ...
                 'Value', true, ...
                 'ValueChangedFcn', @(~, ~) app.onAxesFormatChanged());
-            app.GridEnableCheckBox.Layout.Row = 11;
+            app.GridEnableCheckBox.Layout.Row = 13;
             app.GridEnableCheckBox.Layout.Column = [1 2];
 
             app.GridStyleLabel = uilabel(app.ControlGrid, 'Text', app.text('grid_style'));
-            app.GridStyleLabel.Layout.Row = 12;
+            app.GridStyleLabel.Layout.Row = 14;
             app.GridStyleLabel.Layout.Column = 1;
 
             app.GridStyleDropDown = uidropdown(app.ControlGrid, ...
                 'Items', app.gridStyleItems(), ...
                 'ValueChangedFcn', @(~, ~) app.onAxesFormatChanged());
-            app.GridStyleDropDown.Layout.Row = 12;
+            app.GridStyleDropDown.Layout.Row = 14;
             app.GridStyleDropDown.Layout.Column = 2;
 
             app.BoxEnableCheckBox = uicheckbox(app.ControlGrid, ...
                 'Text', app.text('enable_box_checkbox'), ...
                 'Value', true, ...
                 'ValueChangedFcn', @(~, ~) app.onAxesFormatChanged());
-            app.BoxEnableCheckBox.Layout.Row = 13;
+            app.BoxEnableCheckBox.Layout.Row = 15;
             app.BoxEnableCheckBox.Layout.Column = [1 2];
 
             app.AnalyzeButton = uibutton(app.ControlGrid, 'Text', app.text('analyze_button'), ...
                 'Enable', 'off', ...
                 'ButtonPushedFcn', @(~, ~) app.analyzeSignal());
-            app.AnalyzeButton.Layout.Row = 14;
+            app.AnalyzeButton.Layout.Row = 16;
             app.AnalyzeButton.Layout.Column = [1 2];
 
             app.ExportButton = uibutton(app.ControlGrid, 'Text', app.text('export_button'), ...
                 'Enable', 'off', ...
                 'ButtonPushedFcn', @(~, ~) app.exportResult());
-            app.ExportButton.Layout.Row = 15;
+            app.ExportButton.Layout.Row = 17;
             app.ExportButton.Layout.Column = [1 2];
 
             app.ExportFigureButton = uibutton(app.ControlGrid, 'Text', app.text('export_figure_button'), ...
                 'Enable', 'off', ...
                 'ButtonPushedFcn', @(~, ~) app.exportAnalysisFigure());
-            app.ExportFigureButton.Layout.Row = 16;
+            app.ExportFigureButton.Layout.Row = 18;
             app.ExportFigureButton.Layout.Column = [1 2];
+
+            app.ExportMatButton = uibutton(app.ControlGrid, 'Text', app.text('export_mat_button'), ...
+                'Enable', 'off', ...
+                'ButtonPushedFcn', @(~, ~) app.exportLoadedCsvToMat());
+            app.ExportMatButton.Layout.Row = 19;
+            app.ExportMatButton.Layout.Column = [1 2];
+
+            app.SpectrumInsetPanel = uipanel(app.ControlGrid, 'Title', app.text('spectrum_inset_panel_title'));
+            app.SpectrumInsetPanel.Layout.Row = 20;
+            app.SpectrumInsetPanel.Layout.Column = [1 2];
+            app.createSpectrumInsetControls(app.SpectrumInsetPanel);
+
+            app.DrawSpectrumInsetButton = uibutton(app.ControlGrid, 'Text', app.text('draw_spectrum_inset_button'), ...
+                'Enable', 'off', ...
+                'ButtonPushedFcn', @(~, ~) app.plotSpectrumInsetView());
+            app.DrawSpectrumInsetButton.Layout.Row = 21;
+            app.DrawSpectrumInsetButton.Layout.Column = [1 2];
 
             app.ZoomEnableCheckBox = uicheckbox(app.ControlGrid, ...
                 'Text', app.text('enable_zoom_checkbox'), ...
                 'Value', false, ...
                 'ValueChangedFcn', @(~, ~) app.onZoomEnableChanged());
-            app.ZoomEnableCheckBox.Layout.Row = 17;
+            app.ZoomEnableCheckBox.Layout.Row = 22;
             app.ZoomEnableCheckBox.Layout.Column = [1 2];
 
             app.ZoomPanel = uipanel(app.ControlGrid, 'Title', app.text('zoom_panel_title'));
-            app.ZoomPanel.Layout.Row = 18;
+            app.ZoomPanel.Layout.Row = 23;
             app.ZoomPanel.Layout.Column = [1 2];
             app.createZoomControls(app.ZoomPanel);
 
             app.DrawZoomButton = uibutton(app.ControlGrid, 'Text', app.text('draw_zoom_button'), ...
                 'Enable', 'off', ...
                 'ButtonPushedFcn', @(~, ~) app.plotZoomView());
-            app.DrawZoomButton.Layout.Row = 19;
+            app.DrawZoomButton.Layout.Row = 24;
             app.DrawZoomButton.Layout.Column = [1 2];
 
             app.ResultTable = uitable(app.ControlGrid, ...
                 'ColumnName', {app.text('table_item'), app.text('table_value')}, ...
                 'Data', cell(0, 2));
-            app.ResultTable.Layout.Row = 20;
+            app.ResultTable.Layout.Row = 25;
             app.ResultTable.Layout.Column = [1 2];
 
             app.StatusLabel = uilabel(app.ControlGrid, 'Text', app.text('select_file'), ...
                 'WordWrap', 'on');
-            app.StatusLabel.Layout.Row = 21;
+            app.StatusLabel.Layout.Row = 26;
             app.StatusLabel.Layout.Column = [1 2];
             app.updateZoomVisibility();
 
@@ -351,6 +431,42 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
             app.SpectrumAxes = uiaxes(plotGrid);
             app.SpectrumAxes.Layout.Row = 2;
             app.applyAxesFormat(app.SpectrumAxes);
+        end
+
+        function createSpectrumInsetControls(app, parent)
+            insetGrid = uigridlayout(parent, [3 4]);
+            insetGrid.ColumnWidth = {58, '1x', 58, '1x'};
+            insetGrid.RowHeight = {28, 24, 36};
+            insetGrid.Padding = [8 8 8 8];
+            insetGrid.RowSpacing = 5;
+            insetGrid.ColumnSpacing = 6;
+
+            uilabel(insetGrid, 'Text', app.text('spectrum_ranges'));
+            app.SpectrumRangesEdit = uieditfield(insetGrid, 'text');
+            app.SpectrumRangesEdit.Layout.Row = 1;
+            app.SpectrumRangesEdit.Layout.Column = [2 4];
+
+            uilabel(insetGrid, 'Text', app.text('zoom_ymin'));
+            app.SpectrumYMinEdit = uieditfield(insetGrid, 'text');
+            uilabel(insetGrid, 'Text', app.text('zoom_ymax'));
+            app.SpectrumYMaxEdit = uieditfield(insetGrid, 'text');
+
+            hint = uilabel(insetGrid, 'Text', app.text('spectrum_inset_hint'), 'WordWrap', 'on');
+            hint.Layout.Row = 3;
+            hint.Layout.Column = [1 4];
+        end
+
+        function refreshSpectrumInsetControls(app)
+            values = app.spectrumInsetFieldValues();
+            if ~isempty(app.DrawSpectrumInsetButton) && isvalid(app.DrawSpectrumInsetButton)
+                buttonEnable = app.DrawSpectrumInsetButton.Enable;
+            else
+                buttonEnable = 'off';
+            end
+            delete(app.SpectrumInsetPanel.Children);
+            app.createSpectrumInsetControls(app.SpectrumInsetPanel);
+            app.setSpectrumInsetFieldValues(values);
+            app.DrawSpectrumInsetButton.Enable = buttonEnable;
         end
 
         function createZoomControls(app, parent)
@@ -428,13 +544,13 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
 
             rowHeights = app.ControlGrid.RowHeight;
             if app.ZoomEnabled
-                rowHeights{18} = 380;
-                rowHeights{19} = 34;
+                rowHeights{23} = 380;
+                rowHeights{24} = 34;
                 app.ZoomPanel.Visible = 'on';
                 app.DrawZoomButton.Visible = 'on';
             else
-                rowHeights{18} = 0;
-                rowHeights{19} = 0;
+                rowHeights{23} = 0;
+                rowHeights{24} = 0;
                 app.ZoomPanel.Visible = 'off';
                 app.DrawZoomButton.Visible = 'off';
             end
@@ -467,6 +583,9 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
             app.AnalyzeButton.Enable = 'off';
             app.ExportButton.Enable = 'off';
             app.ExportFigureButton.Enable = 'off';
+            app.ExportMatButton.Enable = 'off';
+            app.DrawSpectrumInsetButton.Enable = 'off';
+            app.clearSpectrumInsetDisplay();
             app.setStatus('loading_file');
             drawnow('limitrate');
             cleanup = onCleanup(@() app.restoreActionButtons());
@@ -486,12 +605,16 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
             end
 
             app.CurrentFileName = file;
+            app.CurrentFilePath = fullPath;
             app.FileLabel.Text = file;
             app.HasResult = false;
             app.Result = struct();
             app.ResultTable.Data = cell(0, 2);
             app.ExportButton.Enable = 'off';
             app.ExportFigureButton.Enable = 'off';
+            app.ExportMatButton.Enable = 'off';
+            app.DrawSpectrumInsetButton.Enable = 'off';
+            app.clearSpectrumInsetDisplay();
 
             if isempty(app.SignalCandidates)
                 app.SignalDropDown.Items = {app.text('no_supported_signal')};
@@ -508,6 +631,9 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
             app.SignalDropDown.Items = labels;
             app.SignalDropDown.Value = labels{1};
             app.AnalyzeButton.Enable = 'on';
+            if strcmpi(extension, '.csv')
+                app.ExportMatButton.Enable = 'on';
+            end
             if strcmpi(extension, '.csv')
                 app.setStatus('csv_loaded', numel(labels), app.CsvData.sampleInterval, app.CsvData.timeOffset);
             else
@@ -547,6 +673,8 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
             app.ResultTable.Data = cell(0, 2);
             app.ExportButton.Enable = 'off';
             app.ExportFigureButton.Enable = 'off';
+            app.DrawSpectrumInsetButton.Enable = 'off';
+            app.clearSpectrumInsetDisplay();
 
             channelCount = size(waveform, 2);
             channelItems = arrayfun(@(k) sprintf('%d', k), 1:channelCount, 'UniformOutput', false);
@@ -569,6 +697,8 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
             app.ResultTable.Data = cell(0, 2);
             app.ExportButton.Enable = 'off';
             app.ExportFigureButton.Enable = 'off';
+            app.DrawSpectrumInsetButton.Enable = 'off';
+            app.clearSpectrumInsetDisplay();
             app.plotPreview();
             cla(app.SpectrumAxes);
             app.formatSpectrumAxes('empty');
@@ -583,6 +713,8 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
             app.AnalyzeButton.Enable = 'off';
             app.ExportButton.Enable = 'off';
             app.ExportFigureButton.Enable = 'off';
+            app.DrawSpectrumInsetButton.Enable = 'off';
+            app.clearSpectrumInsetDisplay();
             app.setStatus('analysis_running');
             drawnow('limitrate');
             cleanup = onCleanup(@() app.restoreActionButtons());
@@ -593,7 +725,8 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
             try
                 app.Result = fftAnalyzeSignal(app.CurrentTime, waveform, ...
                     app.FundamentalEdit.Value, app.CyclesEdit.Value, ...
-                    app.StartTimeEdit.Value, app.MaxFreqEdit.Value);
+                    app.StartTimeEdit.Value, app.MaxFreqEdit.Value, ...
+                    app.ThdMethod, app.thdMaxFrequencyLimit());
             catch ME
                 app.showError('fft_failed', ME.message);
                 return;
@@ -602,8 +735,10 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
             app.HasResult = true;
             app.plotResult(waveform);
             app.updateResultTable();
+            app.setDefaultSpectrumInsetFields();
             app.ExportButton.Enable = 'on';
             app.ExportFigureButton.Enable = 'on';
+            app.DrawSpectrumInsetButton.Enable = 'on';
             app.setStatus('analysis_done');
             clear cleanup;
             app.restoreActionButtons();
@@ -615,6 +750,83 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
             end
             assignin('base', 'FFT_UI_Result', app.Result);
             app.setStatus('export_done');
+        end
+
+        function exportLoadedCsvToMat(app)
+            if ~app.hasLoadedCsv()
+                app.showError('csv_export_mat_failed', app.text('csv_export_mat_no_data'));
+                return;
+            end
+
+            channelIndex = app.selectCsvMatExportChannel();
+            if isempty(channelIndex)
+                return;
+            end
+
+            [~, defaultName] = fileparts(app.CurrentFileName);
+            if isempty(defaultName)
+                defaultName = 'scopeData';
+            end
+            channelName = FourierAnalysisApp.csvChannelExportName(app.CsvData, channelIndex);
+            defaultFile = fullfile(fileparts(app.CurrentFilePath), ...
+                sprintf('%s_%s.mat', defaultName, channelName));
+            [file, path] = uiputfile({'*.mat', app.text('mat_files_filter')}, ...
+                app.text('select_mat_export_file'), defaultFile);
+            if isequal(file, 0)
+                return;
+            end
+
+            outputPath = fullfile(path, file);
+            try
+                app.writeLoadedCsvToMat(outputPath, channelIndex);
+            catch ME
+                app.showError('csv_export_mat_failed', ME.message);
+                return;
+            end
+            app.setStatus('csv_export_mat_done', outputPath);
+        end
+
+        function outputPath = writeLoadedCsvToMat(app, outputPath, channelIndex)
+            if ~app.hasLoadedCsv()
+                error('FourierAnalysisApp:NoCsvData', app.text('csv_export_mat_no_data'));
+            end
+            if nargin < 3
+                channelIndex = 1;
+            end
+
+            outputPath = char(outputPath);
+            [~, variableName] = fileparts(outputPath);
+            variableName = matlab.lang.makeValidName(variableName);
+            if strlength(string(variableName)) == 0
+                variableName = 'scopeData';
+            end
+            matVariables = FourierAnalysisApp.csvDataToFftAnalyzerMatVariable( ...
+                app.CsvData, app.CurrentFilePath, channelIndex, variableName);
+            save(outputPath, '-struct', 'matVariables', '-v7.3');
+        end
+
+        function tf = hasLoadedCsv(app)
+            tf = isstruct(app.CsvData) && isfield(app.CsvData, 'time') && ...
+                isfield(app.CsvData, 'waveforms') && ~isempty(app.CsvData.time) && ...
+                ~isempty(app.CsvData.waveforms);
+        end
+
+        function channelIndex = selectCsvMatExportChannel(app)
+            channelCount = size(app.CsvData.waveforms, 2);
+            if channelCount == 1
+                channelIndex = 1;
+                return;
+            end
+
+            [channelIndex, ok] = listdlg( ...
+                'PromptString', app.text('select_csv_channel_prompt'), ...
+                'SelectionMode', 'single', ...
+                'ListString', app.CsvData.signalLabels, ...
+                'ListSize', [360 180], ...
+                'Name', app.text('select_csv_channel_title'));
+            if ~ok
+                channelIndex = [];
+            end
         end
 
         function fig = exportAnalysisFigure(app)
@@ -650,6 +862,10 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
                 result.fundamentalFrequency, result.fundamentalMagnitude, result.thd * 100));
             app.setStandaloneXLabel(spectrumAxes, app.text('freq_xlabel'));
             app.setStandaloneYLabel(spectrumAxes, app.text('percent_ylabel'));
+            if app.hasSpectrumInsetDisplay()
+                app.drawSpectrumInsetOverlays(app.SpectrumInsetRanges, app.SpectrumInsetYLimits, spectrumAxes, false);
+                app.drawSpectrumInsetAxes(app.SpectrumInsetRanges, app.SpectrumInsetYLimits, spectrumAxes, false);
+            end
 
             if isdeployed
                 app.setStatus('figure_export_done_deployed');
@@ -687,6 +903,34 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
                 app.plotResult(app.CurrentWaveform(:, channelIndex));
             elseif ~isempty(app.CurrentTime)
                 app.plotPreview();
+            end
+        end
+
+        function onThdMethodChanged(app)
+            value = app.ThdMethodDropDown.Value;
+            items = app.thdMethodItems();
+            if strcmp(value, items{2})
+                app.ThdMethod = 'spectrum';
+            else
+                app.ThdMethod = 'matlab';
+            end
+
+            if app.HasResult
+                app.analyzeSignal();
+            end
+        end
+
+        function onThdMaxFrequencyChanged(app)
+            value = app.ThdMaxFreqDropDown.Value;
+            items = app.thdMaxFrequencyItems();
+            if strcmp(value, items{2})
+                app.ThdMaxFrequencyMode = 'max';
+            else
+                app.ThdMaxFrequencyMode = 'nyquist';
+            end
+
+            if app.HasResult
+                app.analyzeSignal();
             end
         end
 
@@ -730,6 +974,7 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
             app.Figure.Name = app.text('app_title');
             app.ControlPanel.Title = app.text('fft_params');
             app.PlotPanel.Title = app.text('analysis_results');
+            app.SpectrumInsetPanel.Title = app.text('spectrum_inset_panel_title');
             app.ZoomPanel.Title = app.text('zoom_panel_title');
             app.ZoomEnableCheckBox.Text = app.text('enable_zoom_checkbox');
             app.LoadButton.Text = app.text('load_button');
@@ -755,12 +1000,21 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
             app.CyclesLabel.Text = app.text('cycles');
             app.StartTimeLabel.Text = app.text('start_time_s');
             app.MaxFreqLabel.Text = app.text('max_freq_hz');
+            app.ThdMethodLabel.Text = app.text('thd_method');
+            app.ThdMethodDropDown.Items = app.thdMethodItems();
+            app.ThdMethodDropDown.Value = app.thdMethodValue();
+            app.ThdMaxFreqLabel.Text = app.text('thd_max_frequency');
+            app.ThdMaxFreqDropDown.Items = app.thdMaxFrequencyItems();
+            app.ThdMaxFreqDropDown.Value = app.thdMaxFrequencyValue();
             app.AnalyzeButton.Text = app.text('analyze_button');
             app.ExportButton.Text = app.text('export_button');
             app.ExportFigureButton.Text = app.text('export_figure_button');
+            app.ExportMatButton.Text = app.text('export_mat_button');
+            app.DrawSpectrumInsetButton.Text = app.text('draw_spectrum_inset_button');
             app.DrawZoomButton.Text = app.text('draw_zoom_button');
             app.AboutButton.Text = app.text('about_button');
             app.ResultTable.ColumnName = {app.text('table_item'), app.text('table_value')};
+            app.refreshSpectrumInsetControls();
             app.refreshZoomControls();
             app.updateZoomVisibility();
 
@@ -804,6 +1058,7 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
             cla(app.TimeAxes);
             app.drawTimeResult(app.TimeAxes, waveform);
 
+            app.clearSpectrumInsetDisplay();
             cla(app.SpectrumAxes);
             app.drawSpectrumResult(app.SpectrumAxes);
         end
@@ -829,21 +1084,25 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
 
         function drawSpectrumResult(app, axesHandle)
             result = app.Result;
-            if numel(result.displayFreqs) <= app.MaxSpectrumBarCount
-                bar(axesHandle, result.displayFreqs, result.displayPercent, ...
-                    'FaceColor', [0.2 0.45 0.75], 'EdgeColor', 'none');
-            else
-                [plotFreqs, plotPercent] = FourierAnalysisApp.compressSpectrumForPlot( ...
-                    result.displayFreqs, result.displayPercent, app.MaxSpectrumLinePoints);
-                plot(axesHandle, plotFreqs, plotPercent, ...
-                    'Color', [0.2 0.45 0.75], 'LineWidth', 1);
-            end
+            app.drawSpectrumSeries(axesHandle, result.displayFreqs, result.displayPercent);
             title(axesHandle, app.text('spectrum_result_title', ...
                 result.fundamentalFrequency, result.fundamentalMagnitude, result.thd * 100));
             xlabel(axesHandle, app.text('freq_xlabel'));
             ylabel(axesHandle, app.text('percent_ylabel'));
             xlim(axesHandle, [0 max(result.displayFreqs)]);
             app.applyAxesFormat(axesHandle);
+        end
+
+        function drawSpectrumSeries(app, axesHandle, freqs, percentValues)
+            if numel(freqs) <= app.MaxSpectrumBarCount
+                bar(axesHandle, freqs, percentValues, ...
+                    'FaceColor', [0.2 0.45 0.75], 'EdgeColor', 'none');
+            else
+                [plotFreqs, plotPercent] = FourierAnalysisApp.compressSpectrumForPlot( ...
+                    freqs, percentValues, app.MaxSpectrumLinePoints);
+                plot(axesHandle, plotFreqs, plotPercent, ...
+                    'Color', [0.2 0.45 0.75], 'LineWidth', 1);
+            end
         end
 
         function formatSpectrumAxes(app, mode)
@@ -882,9 +1141,9 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
 
             figure('Name', app.text('zoom_figure_title'), ...
                 'Color', 'white', ...
-                'Position', [560 180 820 600]);
+                'Position', [520 120 980 680]);
 
-            overviewPos = [0.08 0.56 0.86 0.36];
+            overviewPos = [0.08 0.59 0.86 0.32];
             zoomPositions = app.zoomAxesPositions(zoomCount);
 
             overviewAxes = subplot('Position', overviewPos);
@@ -920,6 +1179,87 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
             end
         end
 
+        function fig = plotSpectrumInsetView(app)
+            fig = app.Figure;
+            if ~app.HasResult
+                app.setStatus('spectrum_inset_need_analysis');
+                return;
+            end
+
+            try
+                [freqRanges, commonYLimit] = app.readSpectrumInsetConfig();
+            catch ME
+                app.showError('spectrum_inset_failed', ME.message);
+                return;
+            end
+
+            result = app.Result;
+            validRanges = zeros(size(freqRanges));
+            yLimits = cell(size(freqRanges, 1), 1);
+            validCount = 0;
+            for k = 1:size(freqRanges, 1)
+                insetIndex = result.displayFreqs >= freqRanges(k, 1) & result.displayFreqs <= freqRanges(k, 2);
+                if ~any(insetIndex)
+                    continue;
+                end
+                validCount = validCount + 1;
+                validRanges(validCount, :) = freqRanges(k, :);
+                if isempty(commonYLimit)
+                    yLimits{validCount} = app.defaultSpectrumInsetYLimit(freqRanges(k, :));
+                else
+                    yLimits{validCount} = commonYLimit;
+                end
+            end
+
+            if validCount == 0
+                app.showError('spectrum_inset_failed', app.text('spectrum_inset_no_valid_ranges'));
+                return;
+            end
+
+            validRanges = validRanges(1:validCount, :);
+            yLimits = yLimits(1:validCount);
+
+            app.clearSpectrumInsetDisplay();
+            app.SpectrumInsetRanges = validRanges;
+            app.SpectrumInsetYLimits = yLimits;
+            cla(app.SpectrumAxes);
+            app.drawSpectrumResult(app.SpectrumAxes);
+            app.drawSpectrumInsetOverlays(validRanges, yLimits);
+            app.drawSpectrumInsetAxes(validRanges, yLimits);
+            app.setStatus('spectrum_inset_done', validCount);
+        end
+
+        function setSpectrumInsetRangeText(app, ranges)
+            if isempty(ranges)
+                app.SpectrumRangesEdit.Value = '';
+                return;
+            end
+            rangeText = strings(size(ranges, 1), 1);
+            for k = 1:size(ranges, 1)
+                rangeText(k) = sprintf('%.9g-%.9g', ranges(k, 1), ranges(k, 2));
+            end
+            app.SpectrumRangesEdit.Value = strjoin(rangeText, ', ');
+        end
+
+        function updateSpectrumInsetYLimits(app, ranges, force)
+            if nargin < 3
+                force = false;
+            end
+            if isempty(ranges) || ~app.HasResult
+                return;
+            end
+            if ~force && (~isempty(strtrim(app.SpectrumYMinEdit.Value)) || ~isempty(strtrim(app.SpectrumYMaxEdit.Value)))
+                return;
+            end
+            maxY = 0;
+            for k = 1:size(ranges, 1)
+                yLimit = app.defaultSpectrumInsetYLimit(ranges(k, :));
+                maxY = max(maxY, yLimit(2));
+            end
+            app.SpectrumYMinEdit.Value = '0';
+            app.SpectrumYMaxEdit.Value = app.formatNumberForEdit(maxY);
+        end
+
         function resetPlots(app)
             cla(app.TimeAxes);
             title(app.TimeAxes, app.text('time_title'));
@@ -929,6 +1269,7 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
 
             cla(app.SpectrumAxes);
             app.formatSpectrumAxes('empty');
+            app.clearSpectrumInsetDisplay();
         end
 
         function updateResultTable(app)
@@ -940,7 +1281,10 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
                 app.text('result_n'), result.N
                 app.text('result_fund_freq'), result.fundamentalFrequency
                 app.text('result_fund_mag'), result.fundamentalMagnitude
+                app.text('result_thd_method'), app.thdMethodDisplayName(result.thdMethod)
                 app.text('result_thd'), result.thd * 100
+                app.text('result_thd_matlab'), result.thdMatlabOriginal * 100
+                app.text('result_thd_full_spectrum'), result.thdFullSpectrum * 100
                 };
         end
 
@@ -970,6 +1314,37 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
             app.Zoom3EndEdit.Value = '';
             app.Zoom3YMinEdit.Value = '';
             app.Zoom3YMaxEdit.Value = '';
+        end
+
+        function setDefaultSpectrumInsetFields(app)
+            if ~app.HasResult || isempty(app.Result.displayFreqs)
+                return;
+            end
+
+            result = app.Result;
+            maxFreq = max(result.displayFreqs);
+            if maxFreq <= 0
+                return;
+            end
+
+            f0 = result.fundamentalFrequency;
+            if maxFreq > 2 * f0
+                freqStart = 2 * f0;
+                freqEnd = min(maxFreq, max(freqStart + f0, 10 * f0));
+            else
+                freqStart = 0.10 * maxFreq;
+                freqEnd = 0.35 * maxFreq;
+            end
+
+            if freqEnd <= freqStart
+                freqStart = 0;
+                freqEnd = maxFreq;
+            end
+
+            freqRanges = [freqStart, freqEnd];
+            app.setSpectrumInsetRangeText(freqRanges);
+            app.SpectrumYMinEdit.Value = '';
+            app.SpectrumYMaxEdit.Value = '';
         end
 
         function [ranges, yLimits] = readZoomConfig(app)
@@ -1007,6 +1382,79 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
             end
             ranges = ranges(1:zoomCount, :);
             yLimits = yLimits(1:zoomCount);
+        end
+
+        function [freqRanges, yLimit] = readSpectrumInsetConfig(app)
+            freqRanges = app.parseSpectrumRanges(app.SpectrumRangesEdit.Value);
+            minFreq = min(app.Result.displayFreqs);
+            maxFreq = max(app.Result.displayFreqs);
+            for k = 1:size(freqRanges, 1)
+                if freqRanges(k, 2) < minFreq || freqRanges(k, 1) > maxFreq
+                    error(app.text('spectrum_freq_outside_error', minFreq, maxFreq));
+                end
+                freqRanges(k, :) = [max(minFreq, freqRanges(k, 1)), min(maxFreq, freqRanges(k, 2))];
+            end
+
+            yLimit = app.readOptionalYLimit( ...
+                app.SpectrumYMinEdit.Value, app.SpectrumYMaxEdit.Value, app.text('spectrum_inset_label'));
+        end
+
+        function freqRanges = parseSpectrumRanges(app, textValue)
+            textValue = strtrim(char(textValue));
+            if isempty(textValue)
+                error(app.text('zoom_required_error', app.text('spectrum_ranges_name')));
+            end
+
+            parts = regexp(textValue, '[,;，；\n\r]+', 'split');
+            freqRanges = zeros(numel(parts), 2);
+            rangeCount = 0;
+            numberPattern = '([0-9]+(\.[0-9]*)?|\.[0-9]+)([eE][+-]?[0-9]+)?';
+            for k = 1:numel(parts)
+                part = strtrim(parts{k});
+                if isempty(part)
+                    continue;
+                end
+                numbers = regexp(part, numberPattern, 'match');
+                if numel(numbers) ~= 2
+                    error(app.text('spectrum_range_format_error'));
+                end
+                freqStart = str2double(numbers{1});
+                freqEnd = str2double(numbers{2});
+                if ~isfinite(freqStart) || ~isfinite(freqEnd)
+                    error(app.text('spectrum_range_format_error'));
+                end
+                if freqEnd <= freqStart
+                    error(app.text('spectrum_freq_order_error'));
+                end
+                rangeCount = rangeCount + 1;
+                freqRanges(rangeCount, :) = [freqStart, freqEnd];
+            end
+
+            if rangeCount == 0
+                error(app.text('zoom_required_error', app.text('spectrum_ranges_name')));
+            end
+            if rangeCount > 6
+                error(app.text('spectrum_range_count_error'));
+            end
+            freqRanges = freqRanges(1:rangeCount, :);
+        end
+
+        function yLimit = defaultSpectrumInsetYLimit(app, freqRange)
+            result = app.Result;
+            idx = result.displayFreqs >= freqRange(1) & result.displayFreqs <= freqRange(2);
+            if ~any(idx)
+                yLimit = [0, 1];
+                return;
+            end
+
+            localMax = max(result.displayPercent(idx));
+            if ~isfinite(localMax) || localMax <= 0
+                localMax = max(result.displayPercent) * 0.10;
+            end
+            if ~isfinite(localMax) || localMax <= 0
+                localMax = 1;
+            end
+            yLimit = [0, max(1, localMax * 1.18)];
         end
 
         function yLimits = readZoomYLimits(app)
@@ -1074,10 +1522,284 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
             end
         end
 
+        function drawSpectrumInsetOverlays(app, freqRanges, yLimits, axesHandle, rememberHandles)
+            if nargin < 4 || isempty(axesHandle)
+                axesHandle = app.SpectrumAxes;
+            end
+            if nargin < 5
+                rememberHandles = true;
+            end
+            if isempty(axesHandle) || ~isvalid(axesHandle)
+                return;
+            end
+
+            currentYLimit = ylim(axesHandle);
+            maxInsetY = currentYLimit(2);
+            for k = 1:numel(yLimits)
+                maxInsetY = max(maxInsetY, yLimits{k}(2));
+            end
+            ylim(axesHandle, [currentYLimit(1), maxInsetY * 1.04]);
+
+            overlays = gobjects(size(freqRanges, 1), 1);
+            hold(axesHandle, 'on');
+            for k = 1:size(freqRanges, 1)
+                yLimit = yLimits{k};
+                overlays(k) = rectangle(axesHandle, ...
+                    'Position', [freqRanges(k, 1), yLimit(1), diff(freqRanges(k, :)), diff(yLimit)], ...
+                    'EdgeColor', [0.85 0.15 0.1], ...
+                    'LineStyle', '--', ...
+                    'LineWidth', 1.1, ...
+                    'HitTest', 'off');
+            end
+            hold(axesHandle, 'off');
+            if rememberHandles
+                app.SpectrumInsetOverlays = overlays;
+            end
+        end
+
+        function drawSpectrumInsetAxes(app, freqRanges, yLimits, axesHandle, rememberHandles)
+            if isempty(freqRanges)
+                return;
+            end
+            if nargin < 4 || isempty(axesHandle)
+                axesHandle = app.SpectrumAxes;
+            end
+            if nargin < 5
+                rememberHandles = true;
+            end
+
+            result = app.Result;
+            frames = app.spectrumInsetFramePositions(freqRanges, axesHandle);
+            insetHandles = gobjects(0);
+            hold(axesHandle, 'on');
+            for k = 1:size(freqRanges, 1)
+                insetIndex = result.displayFreqs >= freqRanges(k, 1) & result.displayFreqs <= freqRanges(k, 2);
+                newHandles = app.drawSingleSpectrumInsetFrame( ...
+                    axesHandle, ...
+                    frames(k, :), ...
+                    freqRanges(k, :), ...
+                    yLimits{k}, ...
+                    result.displayFreqs(insetIndex), ...
+                    result.displayPercent(insetIndex));
+                insetHandles = [insetHandles; newHandles(:)]; %#ok<AGROW>
+            end
+            hold(axesHandle, 'off');
+            if rememberHandles
+                app.SpectrumInsetOverlays = [app.SpectrumInsetOverlays(:); insetHandles(:)];
+            end
+        end
+
+        function handles = drawSingleSpectrumInsetFrame(app, axesHandle, frame, freqRange, yLimit, freqs, percentValues)
+            frameX = [frame(1), frame(1) + frame(3)];
+            frameY = [frame(2), frame(2) + frame(4)];
+            plotX = [frameX(1) + 0.055 * frame(3), frameX(2) - 0.055 * frame(3)];
+            plotY = [frameY(1) + 0.18 * frame(4), frameY(2) - 0.18 * frame(4)];
+            handles = gobjects(0);
+
+            handles(end + 1, 1) = rectangle(axesHandle, ...
+                'Position', frame, ...
+                'FaceColor', 'white', ...
+                'EdgeColor', [0.05 0.05 0.05], ...
+                'LineWidth', 0.85, ...
+                'HitTest', 'off');
+
+            if numel(freqs) > 450
+                stride = ceil(numel(freqs) / 450);
+                freqs = freqs(1:stride:end);
+                percentValues = percentValues(1:stride:end);
+            end
+
+            handles(end + 1, 1) = line(axesHandle, ...
+                [freqRange(1), plotX(1)], [yLimit(2), plotY(1)], ...
+                'Color', [0.9 0.35 0.25], ...
+                'LineStyle', ':', ...
+                'LineWidth', 0.75, ...
+                'HitTest', 'off');
+            handles(end + 1, 1) = line(axesHandle, ...
+                [freqRange(2), plotX(2)], [yLimit(2), plotY(1)], ...
+                'Color', [0.9 0.35 0.25], ...
+                'LineStyle', ':', ...
+                'LineWidth', 0.75, ...
+                'HitTest', 'off');
+
+            xValues = plotX(1) + (freqs - freqRange(1)) ./ diff(freqRange) * diff(plotX);
+            yBase = plotY(1);
+            yValues = plotY(1) + (percentValues - yLimit(1)) ./ diff(yLimit) * diff(plotY);
+            yValues = min(max(yValues, plotY(1)), plotY(2));
+
+            xSegments = [xValues(:)'; xValues(:)'; nan(1, numel(xValues))];
+            ySegments = [repmat(yBase, 1, numel(yValues)); yValues(:)'; nan(1, numel(yValues))];
+            handles(end + 1, 1) = line(axesHandle, xSegments(:), ySegments(:), ...
+                'Color', [0.2 0.45 0.75], ...
+                'LineWidth', 0.7, ...
+                'HitTest', 'off');
+            handles(end + 1, 1) = line(axesHandle, plotX, [yBase yBase], ...
+                'Color', [0.25 0.25 0.25], ...
+                'LineWidth', 0.5, ...
+                'HitTest', 'off');
+
+            titleText = app.text('spectrum_inset_subplot_title', freqRange(1), freqRange(2));
+            handles(end + 1, 1) = text(axesHandle, mean(frameX), frameY(2) - 0.045 * frame(4), ...
+                titleText, ...
+                'HorizontalAlignment', 'center', ...
+                'VerticalAlignment', 'top', ...
+                'FontName', app.standaloneFontName(titleText), ...
+                'FontSize', 9, ...
+                'Color', [0.05 0.05 0.05], ...
+                'HitTest', 'off');
+            handles(end + 1, 1) = text(axesHandle, plotX(1), frameY(1) + 0.04 * frame(4), ...
+                app.formatNumberForEdit(freqRange(1)), ...
+                'HorizontalAlignment', 'left', ...
+                'VerticalAlignment', 'bottom', ...
+                'FontName', 'Times New Roman', ...
+                'FontSize', 8, ...
+                'Color', [0.05 0.05 0.05], ...
+                'HitTest', 'off');
+            handles(end + 1, 1) = text(axesHandle, plotX(2), frameY(1) + 0.04 * frame(4), ...
+                app.formatNumberForEdit(freqRange(2)), ...
+                'HorizontalAlignment', 'right', ...
+                'VerticalAlignment', 'bottom', ...
+                'FontName', 'Times New Roman', ...
+                'FontSize', 8, ...
+                'Color', [0.05 0.05 0.05], ...
+                'HitTest', 'off');
+        end
+
+        function frames = spectrumInsetFramePositions(app, freqRanges, axesHandle)
+            if nargin < 3 || isempty(axesHandle)
+                axesHandle = app.SpectrumAxes;
+            end
+            insetCount = size(freqRanges, 1);
+            [relativeWidth, relativeHeight] = app.spectrumInsetRelativeSize(insetCount);
+            candidates = app.spectrumInsetCandidates(relativeWidth, relativeHeight);
+            scores = app.scoreSpectrumInsetCandidates(candidates, relativeWidth, relativeHeight, freqRanges, axesHandle);
+            [~, order] = sort(scores, 'descend');
+            selected = order(1:min(insetCount, numel(order)));
+
+            xLimits = xlim(axesHandle);
+            yLimits = ylim(axesHandle);
+            frames = zeros(insetCount, 4);
+            for k = 1:insetCount
+                if k <= numel(selected)
+                    candidate = candidates(selected(k), :);
+                else
+                    candidate = [0.08 + 0.30 * mod(k - 1, 3), 0.58 - 0.32 * floor((k - 1) / 3)];
+                end
+                frames(k, :) = [
+                    xLimits(1) + diff(xLimits) * candidate(1), ...
+                    yLimits(1) + diff(yLimits) * candidate(2), ...
+                    diff(xLimits) * relativeWidth, ...
+                    diff(yLimits) * relativeHeight
+                    ];
+            end
+        end
+
+        function [relativeWidth, relativeHeight] = spectrumInsetRelativeSize(~, insetCount)
+            if insetCount <= 1
+                relativeWidth = 0.36;
+                relativeHeight = 0.32;
+            elseif insetCount == 2
+                relativeWidth = 0.30;
+                relativeHeight = 0.28;
+            else
+                relativeWidth = 0.26;
+                relativeHeight = 0.24;
+            end
+        end
+
+        function candidates = spectrumInsetCandidates(~, relativeWidth, relativeHeight)
+            xPositions = [0.08, 0.37, 0.66];
+            yPositions = [0.64, 0.36];
+            candidates = zeros(numel(xPositions) * numel(yPositions), 2);
+            row = 0;
+            for y = yPositions
+                for x = xPositions
+                    row = row + 1;
+                    candidates(row, :) = [min(x, 0.96 - relativeWidth), min(y, 0.93 - relativeHeight)];
+                end
+            end
+        end
+
+        function scores = scoreSpectrumInsetCandidates(app, candidates, relativeWidth, ~, freqRanges, axesHandle)
+            xLimits = xlim(axesHandle);
+            yPreference = candidates(:, 2);
+            scores = yPreference * 2;
+            maxPercent = max(app.Result.displayPercent);
+            if ~isfinite(maxPercent) || maxPercent <= 0
+                maxPercent = 1;
+            end
+
+            for k = 1:size(candidates, 1)
+                candidateFreq = [
+                    xLimits(1) + candidates(k, 1) * diff(xLimits)
+                    xLimits(1) + (candidates(k, 1) + relativeWidth) * diff(xLimits)
+                    ];
+                localIndex = app.Result.displayFreqs >= candidateFreq(1) & app.Result.displayFreqs <= candidateFreq(2);
+                if any(localIndex)
+                    localPeak = max(app.Result.displayPercent(localIndex)) / maxPercent;
+                    scores(k) = scores(k) - localPeak;
+                end
+                for r = 1:size(freqRanges, 1)
+                    overlap = max(0, min(candidateFreq(2), freqRanges(r, 2)) - max(candidateFreq(1), freqRanges(r, 1)));
+                    scores(k) = scores(k) - 3 * overlap / max(diff(freqRanges(r, :)), eps);
+                end
+            end
+        end
+
+        function clearSpectrumInsetDisplay(app)
+            if ~isempty(app.SpectrumInsetOverlays)
+                validOverlays = isgraphics(app.SpectrumInsetOverlays);
+                delete(app.SpectrumInsetOverlays(validOverlays));
+                app.SpectrumInsetOverlays = [];
+            end
+            app.SpectrumInsetRanges = zeros(0, 2);
+            app.SpectrumInsetYLimits = {};
+        end
+
+        function tf = hasSpectrumInsetDisplay(app)
+            tf = ~isempty(app.SpectrumInsetRanges) && ...
+                size(app.SpectrumInsetRanges, 2) == 2 && ...
+                numel(app.SpectrumInsetYLimits) == size(app.SpectrumInsetRanges, 1);
+        end
+
         function drawZoomBoundary(~, axesHandle, xValue)
             yLimits = ylim(axesHandle);
             line(axesHandle, [xValue xValue], yLimits, ...
                 'Color', 'k', 'LineStyle', '--', 'LineWidth', 0.9);
+        end
+
+        function drawInsetConnectorLines(app, fig, mainAxes, insetAxes, freqRange, yLimit)
+            mainPointLeft = app.dataToFigureNormalized(mainAxes, freqRange(1), yLimit(2));
+            mainPointRight = app.dataToFigureNormalized(mainAxes, freqRange(2), yLimit(2));
+            insetPosition = insetAxes.Position;
+            insetTopLeft = [insetPosition(1), insetPosition(2) + insetPosition(4)];
+            insetTopRight = [insetPosition(1) + insetPosition(3), insetPosition(2) + insetPosition(4)];
+
+            annotation(fig, 'line', ...
+                [mainPointLeft(1), insetTopLeft(1)], ...
+                [mainPointLeft(2), insetTopLeft(2)], ...
+                'Color', [0.9 0.35 0.25], 'LineStyle', ':', 'LineWidth', 0.85);
+            annotation(fig, 'line', ...
+                [mainPointRight(1), insetTopRight(1)], ...
+                [mainPointRight(2), insetTopRight(2)], ...
+                'Color', [0.9 0.35 0.25], 'LineStyle', ':', 'LineWidth', 0.85);
+        end
+
+        function point = dataToFigureNormalized(~, axesHandle, xValue, yValue)
+            oldUnits = axesHandle.Units;
+            axesHandle.Units = 'normalized';
+            axesPosition = axesHandle.Position;
+            axesHandle.Units = oldUnits;
+
+            xLimits = xlim(axesHandle);
+            yLimits = ylim(axesHandle);
+            xRatio = (xValue - xLimits(1)) / diff(xLimits);
+            yRatio = (yValue - yLimits(1)) / diff(yLimits);
+            point = [
+                axesPosition(1) + axesPosition(3) * xRatio
+                axesPosition(2) + axesPosition(4) * yRatio
+                ];
+            point = min(max(point, 0), 1);
         end
 
         function setStandaloneTitle(app, axesHandle, textValue)
@@ -1198,6 +1920,23 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
             end
         end
 
+        function values = spectrumInsetFieldValues(app)
+            fields = {
+                'SpectrumRangesEdit'
+                'SpectrumYMinEdit'
+                'SpectrumYMaxEdit'
+                };
+            values = cell(size(fields));
+            for k = 1:numel(fields)
+                control = app.(fields{k});
+                if isempty(control) || ~isvalid(control)
+                    values{k} = '';
+                else
+                    values{k} = control.Value;
+                end
+            end
+        end
+
         function setZoomFieldValues(app, values)
             fields = {
                 'Zoom1StartEdit'
@@ -1218,6 +1957,17 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
             end
         end
 
+        function setSpectrumInsetFieldValues(app, values)
+            fields = {
+                'SpectrumRangesEdit'
+                'SpectrumYMinEdit'
+                'SpectrumYMaxEdit'
+                };
+            for k = 1:min(numel(fields), numel(values))
+                app.(fields{k}).Value = values{k};
+            end
+        end
+
         function textValue = formatNumberForEdit(~, value)
             textValue = sprintf('%.9g', value);
         end
@@ -1230,6 +1980,56 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
                     maxPoints = Inf;
                 otherwise
                     maxPoints = app.MaxTimePlotPoints;
+            end
+        end
+
+        function items = thdMethodItems(app)
+            items = {
+                app.text('thd_method_matlab')
+                app.text('thd_method_spectrum')
+                };
+        end
+
+        function value = thdMethodValue(app)
+            items = app.thdMethodItems();
+            if strcmp(app.ThdMethod, 'spectrum')
+                value = items{2};
+            else
+                value = items{1};
+            end
+        end
+
+        function value = thdMethodDisplayName(app, method)
+            method = char(method);
+            items = app.thdMethodItems();
+            if strcmp(method, 'spectrum')
+                value = items{2};
+            else
+                value = items{1};
+            end
+        end
+
+        function items = thdMaxFrequencyItems(app)
+            items = {
+                app.text('thd_max_nyquist')
+                app.text('thd_max_same_as_max')
+                };
+        end
+
+        function value = thdMaxFrequencyValue(app)
+            items = app.thdMaxFrequencyItems();
+            if strcmp(app.ThdMaxFrequencyMode, 'max')
+                value = items{2};
+            else
+                value = items{1};
+            end
+        end
+
+        function value = thdMaxFrequencyLimit(app)
+            if strcmp(app.ThdMaxFrequencyMode, 'max')
+                value = app.MaxFreqEdit.Value;
+            else
+                value = Inf;
             end
         end
 
@@ -1277,9 +2077,15 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
 
         function restoreActionButtons(app)
             app.LoadButton.Enable = 'on';
+            if app.hasLoadedCsv()
+                app.ExportMatButton.Enable = 'on';
+            else
+                app.ExportMatButton.Enable = 'off';
+            end
             if isempty(app.CurrentTime) || isempty(app.CurrentWaveform)
                 app.AnalyzeButton.Enable = 'off';
                 app.DrawZoomButton.Enable = 'off';
+                app.DrawSpectrumInsetButton.Enable = 'off';
             else
                 app.AnalyzeButton.Enable = 'on';
                 if app.ZoomEnabled
@@ -1292,9 +2098,11 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
             if app.HasResult
                 app.ExportButton.Enable = 'on';
                 app.ExportFigureButton.Enable = 'on';
+                app.DrawSpectrumInsetButton.Enable = 'on';
             else
                 app.ExportButton.Enable = 'off';
                 app.ExportFigureButton.Enable = 'off';
+                app.DrawSpectrumInsetButton.Enable = 'off';
             end
         end
 
@@ -1415,6 +2223,50 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
                     template = '虚线';
                 case 'enable_box_checkbox'
                     template = '显示图外框';
+                case 'spectrum_inset_panel_title'
+                    template = '频谱局部放大';
+                case 'spectrum_ranges'
+                    template = '频段 Hz';
+                case 'spectrum_freq_start'
+                    template = 'F 起点';
+                case 'spectrum_freq_end'
+                    template = 'F 终点';
+                case 'spectrum_inset_hint'
+                    template = '格式如 40-100, 2400-2800；Y 留空则每个放大图自动缩放。';
+                case 'draw_spectrum_inset_button'
+                    template = '在频谱图中显示局部放大';
+                case 'spectrum_inset_need_analysis'
+                    template = '请先完成 FFT 分析。';
+                case 'spectrum_inset_failed'
+                    template = '频谱局部放大失败';
+                case 'spectrum_inset_no_data'
+                    template = '频率区间 %.6g - %.6g Hz 内没有频谱点。';
+                case 'spectrum_inset_no_valid_ranges'
+                    template = '输入的频段在当前频谱中没有可显示的频谱点。';
+                case 'spectrum_inset_done'
+                    template = '已在频谱图中显示 %d 个局部放大区域。';
+                case 'spectrum_ranges_name'
+                    template = '频谱频段';
+                case 'spectrum_range_format_error'
+                    template = '频段格式应类似 40-100, 2400-2800。';
+                case 'spectrum_range_count_error'
+                    template = '一次最多显示 6 个频谱局部放大区域。';
+                case 'spectrum_freq_start_name'
+                    template = '频谱起始频率';
+                case 'spectrum_freq_end_name'
+                    template = '频谱结束频率';
+                case 'spectrum_freq_order_error'
+                    template = '频谱结束频率必须大于起始频率。';
+                case 'spectrum_freq_outside_error'
+                    template = '频率区间超出当前频谱范围 %.6g - %.6g Hz。';
+                case 'spectrum_inset_label'
+                    template = '频谱局部放大';
+                case 'spectrum_inset_figure_title'
+                    template = '频谱局部放大';
+                case 'spectrum_inset_main_title'
+                    template = 'FFT 频谱局部放大';
+                case 'spectrum_inset_subplot_title'
+                    template = '%.6g - %.6g Hz';
                 case 'enable_zoom_checkbox'
                     template = '启用波形局部放大';
                 case 'zoom_panel_title'
@@ -1489,12 +2341,26 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
                     template = '起始时间 s';
                 case 'max_freq_hz'
                     template = '最大频率 Hz';
+                case 'thd_method'
+                    template = 'THD 算法';
+                case 'thd_method_matlab'
+                    template = 'MATLAB 原版';
+                case 'thd_method_spectrum'
+                    template = '全频谱';
+                case 'thd_max_frequency'
+                    template = 'THD 最高频率';
+                case 'thd_max_nyquist'
+                    template = '奈奎斯特频率';
+                case 'thd_max_same_as_max'
+                    template = '同最大频率';
                 case 'analyze_button'
                     template = '开始分析';
                 case 'export_button'
                     template = '导出结果到工作区';
                 case 'export_figure_button'
                     template = '导出 MATLAB Figure';
+                case 'export_mat_button'
+                    template = '导出 CSV 单路为 FFT MAT';
                 case 'table_item'
                     template = '项目';
                 case 'table_value'
@@ -1513,6 +2379,12 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
                     template = '选择 MAT 或 CSV 文件';
                 case 'select_mat_file'
                     template = '选择 MAT 文件';
+                case 'select_mat_export_file'
+                    template = '保存 CSV 转换后的 MAT 文件';
+                case 'select_csv_channel_title'
+                    template = '选择 CSV 通道';
+                case 'select_csv_channel_prompt'
+                    template = '请选择要转换为 Simulink FFT Analyzer MAT 文件的一路信号：';
                 case 'no_supported_format'
                     template = '未找到支持的数据格式。MAT 中的 struct 或 Simulink.SimulationOutput 内部变量需包含 time 和 signals.values；CSV 需包含 TIME 和至少一个波形列。';
                 case 'signals_found'
@@ -1527,6 +2399,12 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
                     template = '分析完成。';
                 case 'export_done'
                     template = '结果已导出到工作区变量 FFT_UI_Result。';
+                case 'csv_export_mat_done'
+                    template = 'CSV 已导出为 MAT 文件：%s';
+                case 'csv_export_mat_no_data'
+                    template = '当前没有已加载的 CSV 数据。';
+                case 'csv_export_mat_failed'
+                    template = 'CSV 导出 MAT 失败';
                 case 'figure_export_done'
                     template = '图已导出到 MATLAB figure，并保存为工作区变量 FFT_UI_Figure。';
                 case 'figure_export_done_deployed'
@@ -1573,6 +2451,12 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
                     template = '基波频率 (Hz)';
                 case 'result_fund_mag'
                     template = '基波幅值';
+                case 'result_thd_method'
+                    template = 'THD 算法';
+                case 'result_thd_matlab'
+                    template = 'THD MATLAB 原版 (%)';
+                case 'result_thd_full_spectrum'
+                    template = 'THD 全频谱 (%)';
                 case 'result_thd'
                     template = 'THD (%)';
                 otherwise
@@ -1616,6 +2500,50 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
                     template = 'Dashed';
                 case 'enable_box_checkbox'
                     template = 'Show Plot Box';
+                case 'spectrum_inset_panel_title'
+                    template = 'Spectrum Inset';
+                case 'spectrum_ranges'
+                    template = 'Bands Hz';
+                case 'spectrum_freq_start'
+                    template = 'F Start';
+                case 'spectrum_freq_end'
+                    template = 'F End';
+                case 'spectrum_inset_hint'
+                    template = 'Use 40-100, 2400-2800. Leave Y empty for per-inset auto scale.';
+                case 'draw_spectrum_inset_button'
+                    template = 'Show Spectrum Insets';
+                case 'spectrum_inset_need_analysis'
+                    template = 'Run FFT analysis first.';
+                case 'spectrum_inset_failed'
+                    template = 'Spectrum Inset Failed';
+                case 'spectrum_inset_no_data'
+                    template = 'No spectrum points exist in %.6g - %.6g Hz.';
+                case 'spectrum_inset_no_valid_ranges'
+                    template = 'The input bands do not contain visible spectrum points.';
+                case 'spectrum_inset_done'
+                    template = 'Displayed %d spectrum inset region(s) in the spectrum plot.';
+                case 'spectrum_ranges_name'
+                    template = 'Spectrum bands';
+                case 'spectrum_range_format_error'
+                    template = 'Band format should look like 40-100, 2400-2800.';
+                case 'spectrum_range_count_error'
+                    template = 'Show at most 6 spectrum inset regions at once.';
+                case 'spectrum_freq_start_name'
+                    template = 'Spectrum start frequency';
+                case 'spectrum_freq_end_name'
+                    template = 'Spectrum end frequency';
+                case 'spectrum_freq_order_error'
+                    template = 'Spectrum end frequency must be greater than start frequency.';
+                case 'spectrum_freq_outside_error'
+                    template = 'Frequency range is outside the current spectrum range %.6g - %.6g Hz.';
+                case 'spectrum_inset_label'
+                    template = 'Spectrum inset';
+                case 'spectrum_inset_figure_title'
+                    template = 'Spectrum Inset';
+                case 'spectrum_inset_main_title'
+                    template = 'FFT Spectrum Inset';
+                case 'spectrum_inset_subplot_title'
+                    template = '%.6g - %.6g Hz';
                 case 'enable_zoom_checkbox'
                     template = 'Enable Waveform Zoom';
                 case 'zoom_panel_title'
@@ -1690,12 +2618,26 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
                     template = 'Start Time s';
                 case 'max_freq_hz'
                     template = 'Max Freq Hz';
+                case 'thd_method'
+                    template = 'THD Method';
+                case 'thd_method_matlab'
+                    template = 'MATLAB original';
+                case 'thd_method_spectrum'
+                    template = 'Full spectrum';
+                case 'thd_max_frequency'
+                    template = 'Max THD Freq';
+                case 'thd_max_nyquist'
+                    template = 'Nyquist frequency';
+                case 'thd_max_same_as_max'
+                    template = 'Same as Max frequency';
                 case 'analyze_button'
                     template = 'Analyze';
                 case 'export_button'
                     template = 'Export Result to Workspace';
                 case 'export_figure_button'
                     template = 'Export MATLAB Figure';
+                case 'export_mat_button'
+                    template = 'Export One CSV Channel to FFT MAT';
                 case 'table_item'
                     template = 'Item';
                 case 'table_value'
@@ -1714,6 +2656,12 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
                     template = 'Select MAT or CSV File';
                 case 'select_mat_file'
                     template = 'Select MAT File';
+                case 'select_mat_export_file'
+                    template = 'Save Converted MAT File';
+                case 'select_csv_channel_title'
+                    template = 'Select CSV Channel';
+                case 'select_csv_channel_prompt'
+                    template = 'Select one signal channel to convert to a Simulink FFT Analyzer MAT file:';
                 case 'no_supported_format'
                     template = 'No supported data format was found. MAT struct variables or Simulink.SimulationOutput entries must contain time and signals.values; CSV files must contain TIME and at least one waveform column.';
                 case 'signals_found'
@@ -1728,6 +2676,12 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
                     template = 'Analysis complete.';
                 case 'export_done'
                     template = 'Result exported to workspace variable FFT_UI_Result.';
+                case 'csv_export_mat_done'
+                    template = 'CSV exported to MAT file: %s';
+                case 'csv_export_mat_no_data'
+                    template = 'No loaded CSV data is available.';
+                case 'csv_export_mat_failed'
+                    template = 'CSV MAT Export Failed';
                 case 'figure_export_done'
                     template = 'Figure exported to MATLAB figure and workspace variable FFT_UI_Figure.';
                 case 'figure_export_done_deployed'
@@ -1774,6 +2728,12 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
                     template = 'Fundamental frequency (Hz)';
                 case 'result_fund_mag'
                     template = 'Fundamental magnitude';
+                case 'result_thd_method'
+                    template = 'THD method';
+                case 'result_thd_matlab'
+                    template = 'THD MATLAB original (%)';
+                case 'result_thd_full_spectrum'
+                    template = 'THD full spectrum (%)';
                 case 'result_thd'
                     template = 'THD (%)';
                 otherwise
@@ -1880,6 +2840,38 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
         function [time, waveform] = readCsvSignal(csvData, column)
             time = csvData.time;
             waveform = csvData.waveforms(:, column);
+        end
+
+        function matVariables = csvDataToFftAnalyzerMatVariable(csvData, sourceFile, channelIndex, variableName)
+            channelCount = size(csvData.waveforms, 2);
+            if channelIndex < 1 || channelIndex > channelCount
+                error('FourierAnalysisApp:InvalidCsvChannel', ...
+                    'Selected CSV channel index must be between 1 and %d.', channelCount);
+            end
+
+            signalData = struct();
+            signalData.time = csvData.time(:);
+            signalData.signals = struct();
+            signalData.signals.values = csvData.waveforms(:, channelIndex);
+            signalData.signals.dimensions = 1;
+            signalData.signals.label = csvData.signalLabels{channelIndex};
+            signalData.blockName = sprintf('%s/%s', char(sourceFile), csvData.channelNames{channelIndex});
+
+            variableName = matlab.lang.makeValidName(variableName);
+            matVariables = struct();
+            matVariables.(variableName) = signalData;
+        end
+
+        function channelName = csvChannelExportName(csvData, channelIndex)
+            if isfield(csvData, 'channelNames') && numel(csvData.channelNames) >= channelIndex
+                channelName = csvData.channelNames{channelIndex};
+            else
+                channelName = sprintf('CH%d', channelIndex);
+            end
+            channelName = matlab.lang.makeValidName(channelName);
+            if strlength(string(channelName)) == 0
+                channelName = sprintf('CH%d', channelIndex);
+            end
         end
 
         function [xOut, yOut] = downsampleForPlot(x, y, maxPoints)

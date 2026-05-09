@@ -1,7 +1,8 @@
-function result = fftAnalyzeSignal(time, waveform, f0, numCycles, startTime, maxDisplayFreq)
+function result = fftAnalyzeSignal(time, waveform, f0, numCycles, startTime, maxDisplayFreq, thdMethod, thdMaxFrequency)
 %FFTANALYZESIGNAL Compute single-sided FFT and THD information.
 %
 % result = fftAnalyzeSignal(time, waveform, f0, numCycles, startTime, maxDisplayFreq)
+% result = fftAnalyzeSignal(..., thdMethod)
 %
 % Inputs:
 %   time           Time vector in seconds.
@@ -10,6 +11,11 @@ function result = fftAnalyzeSignal(time, waveform, f0, numCycles, startTime, max
 %   numCycles      Number of fundamental cycles used by the FFT window.
 %   startTime      FFT window start time in seconds.
 %   maxDisplayFreq Maximum frequency shown in the returned display vectors.
+%   thdMethod      "matlab" follows the Simscape Electrical FFT Analyzer
+%                  default THD calculation. "spectrum" keeps the full
+%                  spectrum calculation requested by the user.
+%   thdMaxFrequency Upper frequency used by the MATLAB-original THD
+%                  calculation. Use Inf for the Nyquist-frequency option.
 %
 % Output fields:
 %   fs, dt, df, N, startIndex, endIndex
@@ -17,7 +23,7 @@ function result = fftAnalyzeSignal(time, waveform, f0, numCycles, startTime, max
 %   freqs, magnitude
 %   displayFreqs, displayMagnitude, displayPercent
 %   fundamentalFrequency, fundamentalMagnitude, fundamentalRms
-%   harmonicFrequencies, harmonicMagnitude, harmonicRms, thd
+%   thdMethod, thdMatlabOriginal, thdFullSpectrum, thd
 
     arguments
         time (:,1) double
@@ -26,10 +32,17 @@ function result = fftAnalyzeSignal(time, waveform, f0, numCycles, startTime, max
         numCycles (1,1) double {mustBePositive}
         startTime (1,1) double {mustBeFinite}
         maxDisplayFreq (1,1) double {mustBePositive}
+        thdMethod (1,1) string = "matlab"
+        thdMaxFrequency (1,1) double {mustBePositive} = Inf
     end
 
     time = time(:);
     waveform = waveform(:);
+    thdMethod = lower(thdMethod);
+    if ~ismember(thdMethod, ["matlab", "spectrum"])
+        error("fftAnalyzeSignal:InvalidThdMethod", ...
+            "thdMethod must be 'matlab' or 'spectrum'.");
+    end
 
     if numel(time) ~= numel(waveform)
         error("fftAnalyzeSignal:SizeMismatch", ...
@@ -85,25 +98,34 @@ function result = fftAnalyzeSignal(time, waveform, f0, numCycles, startTime, max
     freqs = fs * (0:halfCount-1)' / N;
     df = fs / N;
 
-    [~, baseIndex] = min(abs(freqs - f0));
+    roundedBaseIndex = round(f0 / df) + 1;
+    if roundedBaseIndex < 1 || roundedBaseIndex > numel(freqs)
+        error("fftAnalyzeSignal:FundamentalOutOfRange", ...
+            "The fundamental frequency is outside the FFT frequency range.");
+    end
+    baseIndex = roundedBaseIndex;
+
     fundamentalMagnitude = magnitude(baseIndex);
     if fundamentalMagnitude <= eps
         error("fftAnalyzeSignal:ZeroFundamental", ...
             "The fundamental magnitude is too small for percentage or THD calculation.");
     end
 
-    harmonicFrequencies = (2 * f0:f0:freqs(end)).';
-    harmonicMagnitude = zeros(size(harmonicFrequencies));
-    harmonicBinIndexes = zeros(size(harmonicFrequencies));
-    for k = 1:numel(harmonicFrequencies)
-        [~, harmonicIndex] = min(abs(freqs - harmonicFrequencies(k)));
-        harmonicBinIndexes(k) = harmonicIndex;
-        harmonicMagnitude(k) = magnitude(harmonicIndex);
-    end
-
     fundamentalRms = fundamentalMagnitude / sqrt(2);
-    harmonicRms = harmonicMagnitude / sqrt(2);
-    thd = sqrt(sum(harmonicRms.^2)) / fundamentalRms;
+
+    matlabThdMagnitude = magnitude;
+    matlabThdMagnitude(freqs <= f0) = 0;
+    matlabThdMagnitude(freqs > thdMaxFrequency) = 0;
+    matlabOriginalThd = sqrt(max(sum(matlabThdMagnitude.^2), 0)) / fundamentalMagnitude;
+
+    fullSpectrumPower = sum(magnitude(2:end).^2) - fundamentalMagnitude^2;
+    fullSpectrumThd = sqrt(max(fullSpectrumPower, 0)) / fundamentalMagnitude;
+
+    if thdMethod == "spectrum"
+        thd = fullSpectrumThd;
+    else
+        thd = matlabOriginalThd;
+    end
 
     maxIndex = find(freqs <= maxDisplayFreq, 1, "last");
     if isempty(maxIndex)
@@ -128,9 +150,9 @@ function result = fftAnalyzeSignal(time, waveform, f0, numCycles, startTime, max
     result.fundamentalMagnitude = fundamentalMagnitude;
     result.fundamentalRms = fundamentalRms;
     result.fundamentalBinIndex = baseIndex;
-    result.harmonicFrequencies = harmonicFrequencies;
-    result.harmonicBinIndexes = harmonicBinIndexes;
-    result.harmonicMagnitude = harmonicMagnitude;
-    result.harmonicRms = harmonicRms;
+    result.thdMethod = char(thdMethod);
+    result.thdMaxFrequency = min(thdMaxFrequency, freqs(end));
+    result.thdMatlabOriginal = matlabOriginalThd;
+    result.thdFullSpectrum = fullSpectrumThd;
     result.thd = thd;
 end
