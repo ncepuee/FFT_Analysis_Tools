@@ -54,11 +54,13 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
         Zoom3YMinEdit
         Zoom3YMaxEdit
         DrawZoomButton
+        SpectrumInsetEnableCheckBox
         SpectrumInsetPanel
         SpectrumRangesEdit
         SpectrumYMinEdit
         SpectrumYMaxEdit
-        DrawSpectrumInsetButton
+        InsertSpectrumInsetButton
+        DeleteSpectrumInsetButton
         StatusLabel
         FooterHtml
         AboutButton
@@ -79,10 +81,11 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
         LastStatusKey char = 'select_file'
         LastStatusArgs cell = {}
         PlotDetailMode char = 'fast'
-        GridEnabled logical = true
+        GridEnabled logical = false
         GridLineStyle char = '-'
         BoxEnabled logical = true
         ZoomEnabled logical = false
+        SpectrumInsetEnabled logical = false
         ThdMethod char = 'matlab'
         ThdMaxFrequencyMode char = 'nyquist'
         SpectrumInsetOverlays = []
@@ -143,7 +146,11 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
         end
 
         function fig = drawSpectrumInsetFigure(app)
-            fig = app.plotSpectrumInsetView();
+            fig = app.insertSpectrumInsetView();
+        end
+
+        function deleteSpectrumInsetFigure(app)
+            app.deleteSpectrumInsetView();
         end
 
         function setSpectrumInsetFrequencyRange(app, freqStart, freqEnd)
@@ -208,9 +215,9 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
             app.ControlPanel.Layout.Row = 1;
             app.ControlPanel.Layout.Column = 1;
 
-            app.ControlGrid = uigridlayout(app.ControlPanel, [26 2]);
+            app.ControlGrid = uigridlayout(app.ControlPanel, [27 2]);
             app.ControlGrid.ColumnWidth = {95, '1x'};
-            app.ControlGrid.RowHeight = {34, 28, 34, 34, 34, 34, 34, 34, 34, 34, 34, 34, 30, 34, 30, 34, 34, 34, 34, 108, 34, 34, 0, 0, 120, 52};
+            app.ControlGrid.RowHeight = {34, 28, 34, 34, 34, 34, 34, 34, 34, 34, 34, 34, 30, 34, 30, 34, 34, 34, 34, 30, 0, 0, 34, 0, 0, 120, 52};
             app.ControlGrid.Padding = [12 12 12 12];
             app.ControlGrid.RowSpacing = 8;
             try
@@ -328,7 +335,7 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
 
             app.GridEnableCheckBox = uicheckbox(app.ControlGrid, ...
                 'Text', app.text('enable_grid_checkbox'), ...
-                'Value', true, ...
+                'Value', false, ...
                 'ValueChangedFcn', @(~, ~) app.onAxesFormatChanged());
             app.GridEnableCheckBox.Layout.Row = 13;
             app.GridEnableCheckBox.Layout.Column = [1 2];
@@ -374,45 +381,59 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
             app.ExportMatButton.Layout.Row = 19;
             app.ExportMatButton.Layout.Column = [1 2];
 
+            app.SpectrumInsetEnableCheckBox = uicheckbox(app.ControlGrid, ...
+                'Text', app.text('enable_spectrum_inset_checkbox'), ...
+                'Value', false, ...
+                'ValueChangedFcn', @(~, ~) app.onSpectrumInsetEnableChanged());
+            app.SpectrumInsetEnableCheckBox.Layout.Row = 20;
+            app.SpectrumInsetEnableCheckBox.Layout.Column = [1 2];
+
             app.SpectrumInsetPanel = uipanel(app.ControlGrid, 'Title', app.text('spectrum_inset_panel_title'));
-            app.SpectrumInsetPanel.Layout.Row = 20;
+            app.SpectrumInsetPanel.Layout.Row = 21;
             app.SpectrumInsetPanel.Layout.Column = [1 2];
             app.createSpectrumInsetControls(app.SpectrumInsetPanel);
 
-            app.DrawSpectrumInsetButton = uibutton(app.ControlGrid, 'Text', app.text('draw_spectrum_inset_button'), ...
+            app.InsertSpectrumInsetButton = uibutton(app.ControlGrid, 'Text', app.text('insert_spectrum_inset_button'), ...
                 'Enable', 'off', ...
-                'ButtonPushedFcn', @(~, ~) app.plotSpectrumInsetView());
-            app.DrawSpectrumInsetButton.Layout.Row = 21;
-            app.DrawSpectrumInsetButton.Layout.Column = [1 2];
+                'ButtonPushedFcn', @(~, ~) app.insertSpectrumInsetView());
+            app.InsertSpectrumInsetButton.Layout.Row = 22;
+            app.InsertSpectrumInsetButton.Layout.Column = 1;
+
+            app.DeleteSpectrumInsetButton = uibutton(app.ControlGrid, 'Text', app.text('delete_spectrum_inset_button'), ...
+                'Enable', 'off', ...
+                'ButtonPushedFcn', @(~, ~) app.deleteSpectrumInsetView());
+            app.DeleteSpectrumInsetButton.Layout.Row = 22;
+            app.DeleteSpectrumInsetButton.Layout.Column = 2;
 
             app.ZoomEnableCheckBox = uicheckbox(app.ControlGrid, ...
                 'Text', app.text('enable_zoom_checkbox'), ...
                 'Value', false, ...
                 'ValueChangedFcn', @(~, ~) app.onZoomEnableChanged());
-            app.ZoomEnableCheckBox.Layout.Row = 22;
+            app.ZoomEnableCheckBox.Layout.Row = 23;
             app.ZoomEnableCheckBox.Layout.Column = [1 2];
 
             app.ZoomPanel = uipanel(app.ControlGrid, 'Title', app.text('zoom_panel_title'));
-            app.ZoomPanel.Layout.Row = 23;
+            app.ZoomPanel.Layout.Row = 24;
             app.ZoomPanel.Layout.Column = [1 2];
             app.createZoomControls(app.ZoomPanel);
 
             app.DrawZoomButton = uibutton(app.ControlGrid, 'Text', app.text('draw_zoom_button'), ...
                 'Enable', 'off', ...
                 'ButtonPushedFcn', @(~, ~) app.plotZoomView());
-            app.DrawZoomButton.Layout.Row = 24;
+            app.DrawZoomButton.Layout.Row = 25;
             app.DrawZoomButton.Layout.Column = [1 2];
 
             app.ResultTable = uitable(app.ControlGrid, ...
                 'ColumnName', {app.text('table_item'), app.text('table_value')}, ...
                 'Data', cell(0, 2));
-            app.ResultTable.Layout.Row = 25;
+            app.ResultTable.Layout.Row = 26;
             app.ResultTable.Layout.Column = [1 2];
 
             app.StatusLabel = uilabel(app.ControlGrid, 'Text', app.text('select_file'), ...
                 'WordWrap', 'on');
-            app.StatusLabel.Layout.Row = 26;
+            app.StatusLabel.Layout.Row = 27;
             app.StatusLabel.Layout.Column = [1 2];
+            app.updateSpectrumInsetVisibility();
             app.updateZoomVisibility();
 
             app.PlotPanel = uipanel(mainGrid, 'Title', app.text('analysis_results'));
@@ -458,15 +479,22 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
 
         function refreshSpectrumInsetControls(app)
             values = app.spectrumInsetFieldValues();
-            if ~isempty(app.DrawSpectrumInsetButton) && isvalid(app.DrawSpectrumInsetButton)
-                buttonEnable = app.DrawSpectrumInsetButton.Enable;
+            if ~isempty(app.InsertSpectrumInsetButton) && isvalid(app.InsertSpectrumInsetButton)
+                insertEnable = app.InsertSpectrumInsetButton.Enable;
             else
-                buttonEnable = 'off';
+                insertEnable = 'off';
+            end
+            if ~isempty(app.DeleteSpectrumInsetButton) && isvalid(app.DeleteSpectrumInsetButton)
+                deleteEnable = app.DeleteSpectrumInsetButton.Enable;
+            else
+                deleteEnable = 'off';
             end
             delete(app.SpectrumInsetPanel.Children);
             app.createSpectrumInsetControls(app.SpectrumInsetPanel);
             app.setSpectrumInsetFieldValues(values);
-            app.DrawSpectrumInsetButton.Enable = buttonEnable;
+            app.InsertSpectrumInsetButton.Enable = insertEnable;
+            app.DeleteSpectrumInsetButton.Enable = deleteEnable;
+            app.updateSpectrumInsetVisibility();
         end
 
         function createZoomControls(app, parent)
@@ -537,6 +565,29 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
             app.DrawZoomButton.Enable = buttonEnable;
         end
 
+        function updateSpectrumInsetVisibility(app)
+            if isempty(app.ControlGrid) || ~isvalid(app.ControlGrid)
+                return;
+            end
+
+            rowHeights = app.ControlGrid.RowHeight;
+            if app.SpectrumInsetEnabled
+                rowHeights{21} = 108;
+                rowHeights{22} = 34;
+                app.SpectrumInsetPanel.Visible = 'on';
+                app.InsertSpectrumInsetButton.Visible = 'on';
+                app.DeleteSpectrumInsetButton.Visible = 'on';
+            else
+                rowHeights{21} = 0;
+                rowHeights{22} = 0;
+                app.SpectrumInsetPanel.Visible = 'off';
+                app.InsertSpectrumInsetButton.Visible = 'off';
+                app.DeleteSpectrumInsetButton.Visible = 'off';
+            end
+            app.ControlGrid.RowHeight = rowHeights;
+            app.restoreActionButtons();
+        end
+
         function updateZoomVisibility(app)
             if isempty(app.ControlGrid) || ~isvalid(app.ControlGrid)
                 return;
@@ -544,13 +595,13 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
 
             rowHeights = app.ControlGrid.RowHeight;
             if app.ZoomEnabled
-                rowHeights{23} = 380;
-                rowHeights{24} = 34;
+                rowHeights{24} = 380;
+                rowHeights{25} = 34;
                 app.ZoomPanel.Visible = 'on';
                 app.DrawZoomButton.Visible = 'on';
             else
-                rowHeights{23} = 0;
                 rowHeights{24} = 0;
+                rowHeights{25} = 0;
                 app.ZoomPanel.Visible = 'off';
                 app.DrawZoomButton.Visible = 'off';
             end
@@ -584,7 +635,8 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
             app.ExportButton.Enable = 'off';
             app.ExportFigureButton.Enable = 'off';
             app.ExportMatButton.Enable = 'off';
-            app.DrawSpectrumInsetButton.Enable = 'off';
+            app.InsertSpectrumInsetButton.Enable = 'off';
+            app.DeleteSpectrumInsetButton.Enable = 'off';
             app.clearSpectrumInsetDisplay();
             app.setStatus('loading_file');
             drawnow('limitrate');
@@ -613,7 +665,8 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
             app.ExportButton.Enable = 'off';
             app.ExportFigureButton.Enable = 'off';
             app.ExportMatButton.Enable = 'off';
-            app.DrawSpectrumInsetButton.Enable = 'off';
+            app.InsertSpectrumInsetButton.Enable = 'off';
+            app.DeleteSpectrumInsetButton.Enable = 'off';
             app.clearSpectrumInsetDisplay();
 
             if isempty(app.SignalCandidates)
@@ -673,7 +726,8 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
             app.ResultTable.Data = cell(0, 2);
             app.ExportButton.Enable = 'off';
             app.ExportFigureButton.Enable = 'off';
-            app.DrawSpectrumInsetButton.Enable = 'off';
+            app.InsertSpectrumInsetButton.Enable = 'off';
+            app.DeleteSpectrumInsetButton.Enable = 'off';
             app.clearSpectrumInsetDisplay();
 
             channelCount = size(waveform, 2);
@@ -697,7 +751,8 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
             app.ResultTable.Data = cell(0, 2);
             app.ExportButton.Enable = 'off';
             app.ExportFigureButton.Enable = 'off';
-            app.DrawSpectrumInsetButton.Enable = 'off';
+            app.InsertSpectrumInsetButton.Enable = 'off';
+            app.DeleteSpectrumInsetButton.Enable = 'off';
             app.clearSpectrumInsetDisplay();
             app.plotPreview();
             cla(app.SpectrumAxes);
@@ -713,7 +768,8 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
             app.AnalyzeButton.Enable = 'off';
             app.ExportButton.Enable = 'off';
             app.ExportFigureButton.Enable = 'off';
-            app.DrawSpectrumInsetButton.Enable = 'off';
+            app.InsertSpectrumInsetButton.Enable = 'off';
+            app.DeleteSpectrumInsetButton.Enable = 'off';
             app.clearSpectrumInsetDisplay();
             app.setStatus('analysis_running');
             drawnow('limitrate');
@@ -738,7 +794,9 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
             app.setDefaultSpectrumInsetFields();
             app.ExportButton.Enable = 'on';
             app.ExportFigureButton.Enable = 'on';
-            app.DrawSpectrumInsetButton.Enable = 'on';
+            if app.SpectrumInsetEnabled
+                app.InsertSpectrumInsetButton.Enable = 'on';
+            end
             app.setStatus('analysis_done');
             clear cleanup;
             app.restoreActionButtons();
@@ -863,8 +921,12 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
             app.setStandaloneXLabel(spectrumAxes, app.text('freq_xlabel'));
             app.setStandaloneYLabel(spectrumAxes, app.text('percent_ylabel'));
             if app.hasSpectrumInsetDisplay()
+                app.expandSpectrumInsetYLimit(spectrumAxes, app.SpectrumInsetYLimits);
                 app.drawSpectrumInsetOverlays(app.SpectrumInsetRanges, app.SpectrumInsetYLimits, spectrumAxes, false);
+                frames = app.spectrumInsetRelativeFrames(app.SpectrumInsetRanges, spectrumAxes);
                 app.drawSpectrumInsetAxes(app.SpectrumInsetRanges, app.SpectrumInsetYLimits, spectrumAxes, false);
+                app.drawSpectrumInsetConnectorAnnotations(spectrumAxes, frames, ...
+                    app.SpectrumInsetRanges, app.SpectrumInsetYLimits);
             end
 
             if isdeployed
@@ -970,6 +1032,14 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
             app.updateZoomVisibility();
         end
 
+        function onSpectrumInsetEnableChanged(app)
+            app.SpectrumInsetEnabled = logical(app.SpectrumInsetEnableCheckBox.Value);
+            if ~app.SpectrumInsetEnabled && app.HasResult
+                app.deleteSpectrumInsetView();
+            end
+            app.updateSpectrumInsetVisibility();
+        end
+
         function updateLanguageTexts(app)
             app.Figure.Name = app.text('app_title');
             app.ControlPanel.Title = app.text('fft_params');
@@ -1010,12 +1080,15 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
             app.ExportButton.Text = app.text('export_button');
             app.ExportFigureButton.Text = app.text('export_figure_button');
             app.ExportMatButton.Text = app.text('export_mat_button');
-            app.DrawSpectrumInsetButton.Text = app.text('draw_spectrum_inset_button');
+            app.SpectrumInsetEnableCheckBox.Text = app.text('enable_spectrum_inset_checkbox');
+            app.InsertSpectrumInsetButton.Text = app.text('insert_spectrum_inset_button');
+            app.DeleteSpectrumInsetButton.Text = app.text('delete_spectrum_inset_button');
             app.DrawZoomButton.Text = app.text('draw_zoom_button');
             app.AboutButton.Text = app.text('about_button');
             app.ResultTable.ColumnName = {app.text('table_item'), app.text('table_value')};
             app.refreshSpectrumInsetControls();
             app.refreshZoomControls();
+            app.updateSpectrumInsetVisibility();
             app.updateZoomVisibility();
 
             if isempty(app.CurrentFileName)
@@ -1093,16 +1166,21 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
             app.applyAxesFormat(axesHandle);
         end
 
-        function drawSpectrumSeries(app, axesHandle, freqs, percentValues)
+        function seriesHandle = drawSpectrumSeries(app, axesHandle, freqs, percentValues)
             if numel(freqs) <= app.MaxSpectrumBarCount
-                bar(axesHandle, freqs, percentValues, ...
+                seriesHandle = bar(axesHandle, freqs, percentValues, ...
                     'FaceColor', [0.2 0.45 0.75], 'EdgeColor', 'none');
+                tipFreqs = freqs;
+                tipPercent = percentValues;
             else
                 [plotFreqs, plotPercent] = FourierAnalysisApp.compressSpectrumForPlot( ...
                     freqs, percentValues, app.MaxSpectrumLinePoints);
-                plot(axesHandle, plotFreqs, plotPercent, ...
+                seriesHandle = plot(axesHandle, plotFreqs, plotPercent, ...
                     'Color', [0.2 0.45 0.75], 'LineWidth', 1);
+                tipFreqs = plotFreqs;
+                tipPercent = plotPercent;
             end
+            app.configureSpectrumDataTips(seriesHandle, tipFreqs, tipPercent, app.text('spectrum_datatip_series'));
         end
 
         function formatSpectrumAxes(app, mode)
@@ -1179,7 +1257,7 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
             end
         end
 
-        function fig = plotSpectrumInsetView(app)
+        function fig = insertSpectrumInsetView(app)
             fig = app.Figure;
             if ~app.HasResult
                 app.setStatus('spectrum_inset_need_analysis');
@@ -1193,6 +1271,55 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
                 return;
             end
 
+            [validRanges, yLimits] = app.validSpectrumInsetConfig(freqRanges, commonYLimit);
+            validCount = size(validRanges, 1);
+
+            if validCount == 0
+                app.showError('spectrum_inset_failed', app.text('spectrum_inset_no_valid_ranges'));
+                return;
+            end
+
+            try
+                [validRanges, yLimits] = app.mergeSpectrumInsetConfig(validRanges, yLimits);
+            catch ME
+                app.showError('spectrum_inset_failed', ME.message);
+                return;
+            end
+
+            app.SpectrumInsetRanges = validRanges;
+            app.SpectrumInsetYLimits = yLimits;
+            app.redrawSpectrumInsetDisplay();
+            app.setStatus('spectrum_inset_done', size(validRanges, 1));
+            app.restoreActionButtons();
+        end
+
+        function deleteSpectrumInsetView(app)
+            if ~app.HasResult
+                app.clearSpectrumInsetDisplay();
+                app.restoreActionButtons();
+                return;
+            end
+
+            app.clearSpectrumInsetDisplay();
+            cla(app.SpectrumAxes);
+            app.drawSpectrumResult(app.SpectrumAxes);
+            app.setStatus('spectrum_inset_deleted');
+            app.restoreActionButtons();
+        end
+
+        function setSpectrumInsetRangeText(app, ranges)
+            if isempty(ranges)
+                app.SpectrumRangesEdit.Value = '';
+                return;
+            end
+            rangeText = strings(size(ranges, 1), 1);
+            for k = 1:size(ranges, 1)
+                rangeText(k) = sprintf('%.9g-%.9g', ranges(k, 1), ranges(k, 2));
+            end
+            app.SpectrumRangesEdit.Value = strjoin(rangeText, ', ');
+        end
+
+        function [validRanges, yLimits] = validSpectrumInsetConfig(app, freqRanges, commonYLimit)
             result = app.Result;
             validRanges = zeros(size(freqRanges));
             yLimits = cell(size(freqRanges, 1), 1);
@@ -1210,35 +1337,43 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
                     yLimits{validCount} = commonYLimit;
                 end
             end
-
-            if validCount == 0
-                app.showError('spectrum_inset_failed', app.text('spectrum_inset_no_valid_ranges'));
-                return;
-            end
-
             validRanges = validRanges(1:validCount, :);
             yLimits = yLimits(1:validCount);
-
-            app.clearSpectrumInsetDisplay();
-            app.SpectrumInsetRanges = validRanges;
-            app.SpectrumInsetYLimits = yLimits;
-            cla(app.SpectrumAxes);
-            app.drawSpectrumResult(app.SpectrumAxes);
-            app.drawSpectrumInsetOverlays(validRanges, yLimits);
-            app.drawSpectrumInsetAxes(validRanges, yLimits);
-            app.setStatus('spectrum_inset_done', validCount);
         end
 
-        function setSpectrumInsetRangeText(app, ranges)
-            if isempty(ranges)
-                app.SpectrumRangesEdit.Value = '';
+        function [mergedRanges, mergedYLimits] = mergeSpectrumInsetConfig(app, newRanges, newYLimits)
+            if size(newRanges, 1) == 2
+                mergedRanges = newRanges;
+                mergedYLimits = newYLimits;
                 return;
             end
-            rangeText = strings(size(ranges, 1), 1);
-            for k = 1:size(ranges, 1)
-                rangeText(k) = sprintf('%.9g-%.9g', ranges(k, 1), ranges(k, 2));
+
+            mergedRanges = app.SpectrumInsetRanges;
+            mergedYLimits = app.SpectrumInsetYLimits;
+
+            for k = 1:size(newRanges, 1)
+                existingIndex = app.findMatchingSpectrumInsetRange(mergedRanges, newRanges(k, :));
+                if isempty(existingIndex)
+                    if size(mergedRanges, 1) >= 2
+                        error(app.text('spectrum_range_count_error'));
+                    end
+                    mergedRanges(end + 1, :) = newRanges(k, :); %#ok<AGROW>
+                    mergedYLimits{end + 1, 1} = newYLimits{k}; %#ok<AGROW>
+                else
+                    mergedRanges(existingIndex, :) = newRanges(k, :);
+                    mergedYLimits{existingIndex} = newYLimits{k};
+                end
             end
-            app.SpectrumRangesEdit.Value = strjoin(rangeText, ', ');
+        end
+
+        function index = findMatchingSpectrumInsetRange(~, ranges, targetRange)
+            index = [];
+            if isempty(ranges)
+                return;
+            end
+            tolerance = max(1e-9, 1e-9 * max(abs(targetRange)));
+            matches = all(abs(ranges - targetRange) <= tolerance, 2);
+            index = find(matches, 1);
         end
 
         function updateSpectrumInsetYLimits(app, ranges, force)
@@ -1433,7 +1568,7 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
             if rangeCount == 0
                 error(app.text('zoom_required_error', app.text('spectrum_ranges_name')));
             end
-            if rangeCount > 6
+            if rangeCount > 2
                 error(app.text('spectrum_range_count_error'));
             end
             freqRanges = freqRanges(1:rangeCount, :);
@@ -1533,13 +1668,6 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
                 return;
             end
 
-            currentYLimit = ylim(axesHandle);
-            maxInsetY = currentYLimit(2);
-            for k = 1:numel(yLimits)
-                maxInsetY = max(maxInsetY, yLimits{k}(2));
-            end
-            ylim(axesHandle, [currentYLimit(1), maxInsetY * 1.04]);
-
             overlays = gobjects(size(freqRanges, 1), 1);
             hold(axesHandle, 'on');
             for k = 1:size(freqRanges, 1)
@@ -1553,8 +1681,17 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
             end
             hold(axesHandle, 'off');
             if rememberHandles
-                app.SpectrumInsetOverlays = overlays;
+                app.SpectrumInsetOverlays = [app.SpectrumInsetOverlays(:); overlays(:)];
             end
+        end
+
+        function expandSpectrumInsetYLimit(~, axesHandle, yLimits)
+            currentYLimit = ylim(axesHandle);
+            maxInsetY = currentYLimit(2);
+            for k = 1:numel(yLimits)
+                maxInsetY = max(maxInsetY, yLimits{k}(2));
+            end
+            ylim(axesHandle, [currentYLimit(1), maxInsetY * 1.04]);
         end
 
         function drawSpectrumInsetAxes(app, freqRanges, yLimits, axesHandle, rememberHandles)
@@ -1569,23 +1706,236 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
             end
 
             result = app.Result;
-            frames = app.spectrumInsetFramePositions(freqRanges, axesHandle);
             insetHandles = gobjects(0);
-            hold(axesHandle, 'on');
-            for k = 1:size(freqRanges, 1)
-                insetIndex = result.displayFreqs >= freqRanges(k, 1) & result.displayFreqs <= freqRanges(k, 2);
-                newHandles = app.drawSingleSpectrumInsetFrame( ...
-                    axesHandle, ...
-                    frames(k, :), ...
-                    freqRanges(k, :), ...
-                    yLimits{k}, ...
-                    result.displayFreqs(insetIndex), ...
-                    result.displayPercent(insetIndex));
-                insetHandles = [insetHandles; newHandles(:)]; %#ok<AGROW>
+            if isa(axesHandle, 'matlab.ui.control.UIAxes')
+                frames = app.spectrumInsetDataFrames(freqRanges, axesHandle);
+                hold(axesHandle, 'on');
+                for k = 1:size(freqRanges, 1)
+                    insetIndex = result.displayFreqs >= freqRanges(k, 1) & result.displayFreqs <= freqRanges(k, 2);
+                    newHandles = app.drawSingleSpectrumInsetFrame( ...
+                        axesHandle, ...
+                        frames(k, :), ...
+                        freqRanges(k, :), ...
+                        yLimits{k}, ...
+                        result.displayFreqs(insetIndex), ...
+                        result.displayPercent(insetIndex));
+                    insetHandles = [insetHandles; newHandles(:)]; %#ok<AGROW>
+                end
+                hold(axesHandle, 'off');
+            else
+                frames = app.spectrumInsetRelativeFrames(freqRanges, axesHandle);
+                for k = 1:size(freqRanges, 1)
+                    insetIndex = result.displayFreqs >= freqRanges(k, 1) & result.displayFreqs <= freqRanges(k, 2);
+                    insetAxes = app.createSpectrumInsetAxes(axesHandle, frames(k, :));
+                    app.drawSingleSpectrumInsetAxes( ...
+                        insetAxes, ...
+                        frames(k, :), ...
+                        freqRanges(k, :), ...
+                        yLimits{k}, ...
+                        result.displayFreqs(insetIndex), ...
+                        result.displayPercent(insetIndex));
+                    insetHandles = [insetHandles; insetAxes]; %#ok<AGROW>
+                end
             end
-            hold(axesHandle, 'off');
             if rememberHandles
                 app.SpectrumInsetOverlays = [app.SpectrumInsetOverlays(:); insetHandles(:)];
+            end
+        end
+
+        function redrawSpectrumInsetDisplay(app)
+            app.clearSpectrumInsetGraphics();
+            cla(app.SpectrumAxes);
+            app.drawSpectrumResult(app.SpectrumAxes);
+            if app.hasSpectrumInsetDisplay()
+                app.expandSpectrumInsetYLimit(app.SpectrumAxes, app.SpectrumInsetYLimits);
+                app.drawSpectrumInsetAxes(app.SpectrumInsetRanges, app.SpectrumInsetYLimits);
+                frames = app.spectrumInsetDataFrames(app.SpectrumInsetRanges, app.SpectrumAxes);
+                app.drawSpectrumInsetOverlays(app.SpectrumInsetRanges, app.SpectrumInsetYLimits);
+                app.drawSpectrumInsetConnectorLines(app.SpectrumAxes, frames, app.SpectrumInsetRanges, app.SpectrumInsetYLimits);
+            end
+        end
+
+        function insetAxes = createSpectrumInsetAxes(app, mainAxes, relativeFrame)
+            if isa(mainAxes, 'matlab.ui.control.UIAxes')
+                mainPosition = getpixelposition(mainAxes, true);
+                insetPosition = [
+                    mainPosition(1) + relativeFrame(1) * mainPosition(3), ...
+                    mainPosition(2) + relativeFrame(2) * mainPosition(4), ...
+                    relativeFrame(3) * mainPosition(3), ...
+                    relativeFrame(4) * mainPosition(4)
+                    ];
+                insetAxes = uiaxes(app.Figure, 'Position', insetPosition);
+                try
+                    insetAxes.Toolbar.Visible = 'off';
+                catch
+                end
+            else
+                fig = ancestor(mainAxes, 'figure');
+                oldUnits = mainAxes.Units;
+                mainAxes.Units = 'normalized';
+                mainPosition = mainAxes.Position;
+                mainAxes.Units = oldUnits;
+                insetPosition = [
+                    mainPosition(1) + relativeFrame(1) * mainPosition(3), ...
+                    mainPosition(2) + relativeFrame(2) * mainPosition(4), ...
+                    relativeFrame(3) * mainPosition(3), ...
+                    relativeFrame(4) * mainPosition(4)
+                    ];
+                insetAxes = axes('Parent', fig, 'Units', 'normalized', 'Position', insetPosition);
+            end
+            insetAxes.Tag = 'SpectrumInsetAxes';
+        end
+
+        function drawSingleSpectrumInsetAxes(app, insetAxes, ~, freqRange, yLimit, freqs, percentValues)
+            app.drawSpectrumSeries(insetAxes, freqs, percentValues);
+            xlim(insetAxes, freqRange);
+            ylim(insetAxes, yLimit);
+            app.applyAxesFormat(insetAxes);
+            title(insetAxes, app.text('spectrum_inset_subplot_title', freqRange(1), freqRange(2)), ...
+                'FontSize', 9, 'Interpreter', 'none');
+            xlabel(insetAxes, app.text('freq_xlabel'), 'FontSize', 8);
+            ylabel(insetAxes, app.text('percent_ylabel'), 'FontSize', 8);
+            insetAxes.FontSize = 8;
+        end
+
+        function handles = drawSpectrumInsetGrid(app, axesHandle, plotX, plotY)
+            handles = gobjects(0);
+            if ~app.GridEnabled
+                return;
+            end
+
+            gridColor = [0.82 0.82 0.82];
+            xGrid = linspace(plotX(1), plotX(2), 4);
+            yGrid = linspace(plotY(1), plotY(2), 4);
+            for k = 2:numel(xGrid)-1
+                handles(end + 1, 1) = line(axesHandle, [xGrid(k) xGrid(k)], plotY, ...
+                    'Color', gridColor, ...
+                    'LineStyle', app.GridLineStyle, ...
+                    'LineWidth', 0.45, ...
+                    'HitTest', 'off'); %#ok<AGROW>
+            end
+            for k = 2:numel(yGrid)-1
+                handles(end + 1, 1) = line(axesHandle, plotX, [yGrid(k) yGrid(k)], ...
+                    'Color', gridColor, ...
+                    'LineStyle', app.GridLineStyle, ...
+                    'LineWidth', 0.45, ...
+                'HitTest', 'off'); %#ok<AGROW>
+            end
+        end
+
+        function drawSpectrumInsetConnectorLines(app, axesHandle, frames, freqRanges, yLimits)
+            if isempty(frames)
+                return;
+            end
+
+            connectorHandles = gobjects(0);
+            hold(axesHandle, 'on');
+            for k = 1:size(frames, 1)
+                frame = frames(k, :);
+                frameX = [frame(1), frame(1) + frame(3)];
+                frameY = [frame(2), frame(2) + frame(4)];
+                plotX = [frameX(1) + 0.055 * frame(3), frameX(2) - 0.055 * frame(3)];
+                plotY = [frameY(1) + 0.18 * frame(4), frameY(2) - 0.18 * frame(4)];
+                yLimit = yLimits{k};
+
+                connectorHandles(end + 1, 1) = line(axesHandle, ...
+                    [freqRanges(k, 1), plotX(1)], [yLimit(2), plotY(1)], ...
+                    'Color', [0.9 0.35 0.25], ...
+                    'LineStyle', '--', ...
+                    'LineWidth', 1.05, ...
+                    'Clipping', 'off', ...
+                    'HitTest', 'off'); %#ok<AGROW>
+                connectorHandles(end + 1, 1) = line(axesHandle, ...
+                    [freqRanges(k, 2), plotX(2)], [yLimit(2), plotY(1)], ...
+                    'Color', [0.9 0.35 0.25], ...
+                    'LineStyle', '--', ...
+                    'LineWidth', 1.05, ...
+                    'Clipping', 'off', ...
+                    'HitTest', 'off'); %#ok<AGROW>
+            end
+            hold(axesHandle, 'off');
+            app.SpectrumInsetOverlays = [app.SpectrumInsetOverlays(:); connectorHandles(:)];
+        end
+
+        function annotationHandles = drawSpectrumInsetConnectorAnnotations(app, axesHandle, relativeFrames, freqRanges, insetYLimits)
+            annotationHandles = gobjects(0);
+            if isempty(relativeFrames)
+                return;
+            end
+
+            fig = ancestor(axesHandle, 'figure');
+            if isempty(fig) || ~isvalid(fig)
+                return;
+            end
+
+            oldUnits = axesHandle.Units;
+            restoreUnits = onCleanup(@() set(axesHandle, 'Units', oldUnits));
+            axesHandle.Units = 'normalized';
+            mainPosition = axesHandle.Position;
+            xLimits = xlim(axesHandle);
+            mainYLimits = ylim(axesHandle);
+
+            for k = 1:size(relativeFrames, 1)
+                frame = relativeFrames(k, :);
+                plotX = [frame(1) + 0.055 * frame(3), frame(1) + frame(3) - 0.055 * frame(3)];
+                plotY = frame(2) + 0.18 * frame(4);
+                sourceY = insetYLimits{k}(2);
+
+                sourceLeft = app.axesDataToFigurePoint(mainPosition, xLimits, mainYLimits, ...
+                    freqRanges(k, 1), sourceY);
+                sourceRight = app.axesDataToFigurePoint(mainPosition, xLimits, mainYLimits, ...
+                    freqRanges(k, 2), sourceY);
+                targetLeft = [
+                    mainPosition(1) + plotX(1) * mainPosition(3), ...
+                    mainPosition(2) + plotY * mainPosition(4)
+                    ];
+                targetRight = [
+                    mainPosition(1) + plotX(2) * mainPosition(3), ...
+                    mainPosition(2) + plotY * mainPosition(4)
+                    ];
+
+                annotationHandles(end + 1, 1) = app.drawSpectrumInsetAnnotationLine( ...
+                    fig, sourceLeft, targetLeft); %#ok<AGROW>
+                annotationHandles(end + 1, 1) = app.drawSpectrumInsetAnnotationLine( ...
+                    fig, sourceRight, targetRight); %#ok<AGROW>
+            end
+        end
+
+        function lineHandle = drawSpectrumInsetAnnotationLine(~, fig, sourcePoint, targetPoint)
+            sourcePoint = min(max(sourcePoint, 0), 1);
+            targetPoint = min(max(targetPoint, 0), 1);
+            lineHandle = annotation(fig, 'line', ...
+                [sourcePoint(1), targetPoint(1)], ...
+                [sourcePoint(2), targetPoint(2)], ...
+                'Color', [0.9 0.35 0.25], ...
+                'LineStyle', '--', ...
+                'LineWidth', 1.05);
+        end
+
+        function point = axesDataToFigurePoint(~, axesPosition, xLimits, yLimits, xValue, yValue)
+            point = [
+                axesPosition(1) + (xValue - xLimits(1)) / diff(xLimits) * axesPosition(3), ...
+                axesPosition(2) + (yValue - yLimits(1)) / diff(yLimits) * axesPosition(4)
+                ];
+        end
+
+        function configureSpectrumDataTips(app, chartHandle, freqs, percentValues, seriesName)
+            try
+                if isempty(chartHandle) || ~isvalid(chartHandle) || ~isprop(chartHandle, 'DataTipTemplate')
+                    return;
+                end
+                freqs = freqs(:);
+                percentValues = percentValues(:);
+                if numel(freqs) ~= numel(percentValues)
+                    return;
+                end
+                chartHandle.DisplayName = seriesName;
+                chartHandle.DataTipTemplate.Interpreter = 'none';
+                chartHandle.DataTipTemplate.DataTipRows = [
+                    dataTipTextRow(app.text('datatip_frequency'), freqs), ...
+                    dataTipTextRow(app.text('datatip_percent'), percentValues)
+                    ];
+            catch
             end
         end
 
@@ -1599,9 +1949,10 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
             handles(end + 1, 1) = rectangle(axesHandle, ...
                 'Position', frame, ...
                 'FaceColor', 'white', ...
-                'EdgeColor', [0.05 0.05 0.05], ...
-                'LineWidth', 0.85, ...
+                'EdgeColor', 'none', ...
                 'HitTest', 'off');
+            gridHandles = app.drawSpectrumInsetGrid(axesHandle, plotX, plotY);
+            handles = [handles; gridHandles(:)]; %#ok<AGROW>
 
             if numel(freqs) > 450
                 stride = ceil(numel(freqs) / 450);
@@ -1609,34 +1960,51 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
                 percentValues = percentValues(1:stride:end);
             end
 
-            handles(end + 1, 1) = line(axesHandle, ...
-                [freqRange(1), plotX(1)], [yLimit(2), plotY(1)], ...
-                'Color', [0.9 0.35 0.25], ...
-                'LineStyle', ':', ...
-                'LineWidth', 0.75, ...
-                'HitTest', 'off');
-            handles(end + 1, 1) = line(axesHandle, ...
-                [freqRange(2), plotX(2)], [yLimit(2), plotY(1)], ...
-                'Color', [0.9 0.35 0.25], ...
-                'LineStyle', ':', ...
-                'LineWidth', 0.75, ...
-                'HitTest', 'off');
-
             xValues = plotX(1) + (freqs - freqRange(1)) ./ diff(freqRange) * diff(plotX);
             yBase = plotY(1);
             yValues = plotY(1) + (percentValues - yLimit(1)) ./ diff(yLimit) * diff(plotY);
             yValues = min(max(yValues, plotY(1)), plotY(2));
 
-            xSegments = [xValues(:)'; xValues(:)'; nan(1, numel(xValues))];
-            ySegments = [repmat(yBase, 1, numel(yValues)); yValues(:)'; nan(1, numel(yValues))];
-            handles(end + 1, 1) = line(axesHandle, xSegments(:), ySegments(:), ...
-                'Color', [0.2 0.45 0.75], ...
-                'LineWidth', 0.7, ...
-                'HitTest', 'off');
+            if numel(app.Result.displayFreqs) <= app.MaxSpectrumBarCount
+                xSegments = [xValues(:)'; xValues(:)'; nan(1, numel(xValues))];
+                ySegments = [repmat(yBase, 1, numel(yValues)); yValues(:)'; nan(1, numel(yValues))];
+                insetSeries = line(axesHandle, xSegments(:), ySegments(:), ...
+                    'Color', [0.2 0.45 0.75], ...
+                    'LineWidth', 0.7, ...
+                    'HitTest', 'on', ...
+                    'PickableParts', 'visible');
+                tipFreqSegments = [freqs(:)'; freqs(:)'; nan(1, numel(freqs))];
+                tipPercentSegments = [percentValues(:)'; percentValues(:)'; nan(1, numel(percentValues))];
+                app.configureSpectrumDataTips(insetSeries, tipFreqSegments(:), tipPercentSegments(:), ...
+                    app.text('spectrum_inset_datatip_series'));
+            else
+                insetSeries = line(axesHandle, xValues(:), yValues(:), ...
+                    'Color', [0.2 0.45 0.75], ...
+                    'LineWidth', 1, ...
+                    'HitTest', 'on', ...
+                    'PickableParts', 'visible');
+                app.configureSpectrumDataTips(insetSeries, freqs(:), percentValues(:), ...
+                    app.text('spectrum_inset_datatip_series'));
+            end
+            handles(end + 1, 1) = insetSeries;
             handles(end + 1, 1) = line(axesHandle, plotX, [yBase yBase], ...
                 'Color', [0.25 0.25 0.25], ...
                 'LineWidth', 0.5, ...
                 'HitTest', 'off');
+            handles(end + 1, 1) = line(axesHandle, [plotX(1) plotX(1)], plotY, ...
+                'Color', [0.25 0.25 0.25], ...
+                'LineWidth', 0.5, ...
+                'HitTest', 'off');
+            if app.BoxEnabled
+                handles(end + 1, 1) = line(axesHandle, plotX, [plotY(2) plotY(2)], ...
+                    'Color', [0.25 0.25 0.25], ...
+                    'LineWidth', 0.5, ...
+                    'HitTest', 'off');
+                handles(end + 1, 1) = line(axesHandle, [plotX(2) plotX(2)], plotY, ...
+                    'Color', [0.25 0.25 0.25], ...
+                    'LineWidth', 0.5, ...
+                    'HitTest', 'off');
+            end
 
             titleText = app.text('spectrum_inset_subplot_title', freqRange(1), freqRange(2));
             handles(end + 1, 1) = text(axesHandle, mean(frameX), frameY(2) - 0.045 * frame(4), ...
@@ -1665,7 +2033,7 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
                 'HitTest', 'off');
         end
 
-        function frames = spectrumInsetFramePositions(app, freqRanges, axesHandle)
+        function frames = spectrumInsetRelativeFrames(app, freqRanges, axesHandle)
             if nargin < 3 || isempty(axesHandle)
                 axesHandle = app.SpectrumAxes;
             end
@@ -1676,8 +2044,6 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
             [~, order] = sort(scores, 'descend');
             selected = order(1:min(insetCount, numel(order)));
 
-            xLimits = xlim(axesHandle);
-            yLimits = ylim(axesHandle);
             frames = zeros(insetCount, 4);
             for k = 1:insetCount
                 if k <= numel(selected)
@@ -1685,11 +2051,21 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
                 else
                     candidate = [0.08 + 0.30 * mod(k - 1, 3), 0.58 - 0.32 * floor((k - 1) / 3)];
                 end
+                frames(k, :) = [candidate(1), candidate(2), relativeWidth, relativeHeight];
+            end
+        end
+
+        function frames = spectrumInsetDataFrames(app, freqRanges, axesHandle)
+            relativeFrames = app.spectrumInsetRelativeFrames(freqRanges, axesHandle);
+            xLimits = xlim(axesHandle);
+            yLimits = ylim(axesHandle);
+            frames = zeros(size(relativeFrames));
+            for k = 1:size(relativeFrames, 1)
                 frames(k, :) = [
-                    xLimits(1) + diff(xLimits) * candidate(1), ...
-                    yLimits(1) + diff(yLimits) * candidate(2), ...
-                    diff(xLimits) * relativeWidth, ...
-                    diff(yLimits) * relativeHeight
+                    xLimits(1) + diff(xLimits) * relativeFrames(k, 1), ...
+                    yLimits(1) + diff(yLimits) * relativeFrames(k, 2), ...
+                    diff(xLimits) * relativeFrames(k, 3), ...
+                    diff(yLimits) * relativeFrames(k, 4)
                     ];
             end
         end
@@ -1747,13 +2123,17 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
         end
 
         function clearSpectrumInsetDisplay(app)
+            app.clearSpectrumInsetGraphics();
+            app.SpectrumInsetRanges = zeros(0, 2);
+            app.SpectrumInsetYLimits = {};
+        end
+
+        function clearSpectrumInsetGraphics(app)
             if ~isempty(app.SpectrumInsetOverlays)
                 validOverlays = isgraphics(app.SpectrumInsetOverlays);
                 delete(app.SpectrumInsetOverlays(validOverlays));
                 app.SpectrumInsetOverlays = [];
             end
-            app.SpectrumInsetRanges = zeros(0, 2);
-            app.SpectrumInsetYLimits = {};
         end
 
         function tf = hasSpectrumInsetDisplay(app)
@@ -2085,7 +2465,8 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
             if isempty(app.CurrentTime) || isempty(app.CurrentWaveform)
                 app.AnalyzeButton.Enable = 'off';
                 app.DrawZoomButton.Enable = 'off';
-                app.DrawSpectrumInsetButton.Enable = 'off';
+                app.InsertSpectrumInsetButton.Enable = 'off';
+                app.DeleteSpectrumInsetButton.Enable = 'off';
             else
                 app.AnalyzeButton.Enable = 'on';
                 if app.ZoomEnabled
@@ -2098,11 +2479,21 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
             if app.HasResult
                 app.ExportButton.Enable = 'on';
                 app.ExportFigureButton.Enable = 'on';
-                app.DrawSpectrumInsetButton.Enable = 'on';
+                if app.SpectrumInsetEnabled
+                    app.InsertSpectrumInsetButton.Enable = 'on';
+                else
+                    app.InsertSpectrumInsetButton.Enable = 'off';
+                end
+                if app.SpectrumInsetEnabled && app.hasSpectrumInsetDisplay()
+                    app.DeleteSpectrumInsetButton.Enable = 'on';
+                else
+                    app.DeleteSpectrumInsetButton.Enable = 'off';
+                end
             else
                 app.ExportButton.Enable = 'off';
                 app.ExportFigureButton.Enable = 'off';
-                app.DrawSpectrumInsetButton.Enable = 'off';
+                app.InsertSpectrumInsetButton.Enable = 'off';
+                app.DeleteSpectrumInsetButton.Enable = 'off';
             end
         end
 
@@ -2223,6 +2614,8 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
                     template = '虚线';
                 case 'enable_box_checkbox'
                     template = '显示图外框';
+                case 'enable_spectrum_inset_checkbox'
+                    template = '启用频谱局部放大';
                 case 'spectrum_inset_panel_title'
                     template = '频谱局部放大';
                 case 'spectrum_ranges'
@@ -2232,9 +2625,11 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
                 case 'spectrum_freq_end'
                     template = 'F 终点';
                 case 'spectrum_inset_hint'
-                    template = '格式如 40-100, 2400-2800；Y 留空则每个放大图自动缩放。';
-                case 'draw_spectrum_inset_button'
-                    template = '在频谱图中显示局部放大';
+                    template = '最多两组，格式如 40-100, 2400-2800；Y 留空则每个放大图自动缩放。';
+                case 'insert_spectrum_inset_button'
+                    template = '插入';
+                case 'delete_spectrum_inset_button'
+                    template = '删除';
                 case 'spectrum_inset_need_analysis'
                     template = '请先完成 FFT 分析。';
                 case 'spectrum_inset_failed'
@@ -2245,12 +2640,14 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
                     template = '输入的频段在当前频谱中没有可显示的频谱点。';
                 case 'spectrum_inset_done'
                     template = '已在频谱图中显示 %d 个局部放大区域。';
+                case 'spectrum_inset_deleted'
+                    template = '已删除频谱局部放大区域。';
                 case 'spectrum_ranges_name'
                     template = '频谱频段';
                 case 'spectrum_range_format_error'
                     template = '频段格式应类似 40-100, 2400-2800。';
                 case 'spectrum_range_count_error'
-                    template = '一次最多显示 6 个频谱局部放大区域。';
+                    template = '一次最多显示 2 个频谱局部放大区域。';
                 case 'spectrum_freq_start_name'
                     template = '频谱起始频率';
                 case 'spectrum_freq_end_name'
@@ -2267,6 +2664,14 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
                     template = 'FFT 频谱局部放大';
                 case 'spectrum_inset_subplot_title'
                     template = '%.6g - %.6g Hz';
+                case 'spectrum_datatip_series'
+                    template = '频谱';
+                case 'spectrum_inset_datatip_series'
+                    template = '频谱局部放大';
+                case 'datatip_frequency'
+                    template = '频率 (Hz)';
+                case 'datatip_percent'
+                    template = '幅值 (%)';
                 case 'enable_zoom_checkbox'
                     template = '启用波形局部放大';
                 case 'zoom_panel_title'
@@ -2500,6 +2905,8 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
                     template = 'Dashed';
                 case 'enable_box_checkbox'
                     template = 'Show Plot Box';
+                case 'enable_spectrum_inset_checkbox'
+                    template = 'Enable Spectrum Inset';
                 case 'spectrum_inset_panel_title'
                     template = 'Spectrum Inset';
                 case 'spectrum_ranges'
@@ -2509,9 +2916,11 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
                 case 'spectrum_freq_end'
                     template = 'F End';
                 case 'spectrum_inset_hint'
-                    template = 'Use 40-100, 2400-2800. Leave Y empty for per-inset auto scale.';
-                case 'draw_spectrum_inset_button'
-                    template = 'Show Spectrum Insets';
+                    template = 'Up to two bands, e.g. 40-100, 2400-2800. Leave Y empty for per-inset auto scale.';
+                case 'insert_spectrum_inset_button'
+                    template = 'Insert';
+                case 'delete_spectrum_inset_button'
+                    template = 'Delete';
                 case 'spectrum_inset_need_analysis'
                     template = 'Run FFT analysis first.';
                 case 'spectrum_inset_failed'
@@ -2522,12 +2931,14 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
                     template = 'The input bands do not contain visible spectrum points.';
                 case 'spectrum_inset_done'
                     template = 'Displayed %d spectrum inset region(s) in the spectrum plot.';
+                case 'spectrum_inset_deleted'
+                    template = 'Deleted spectrum inset region(s).';
                 case 'spectrum_ranges_name'
                     template = 'Spectrum bands';
                 case 'spectrum_range_format_error'
                     template = 'Band format should look like 40-100, 2400-2800.';
                 case 'spectrum_range_count_error'
-                    template = 'Show at most 6 spectrum inset regions at once.';
+                    template = 'Show at most 2 spectrum inset regions at once.';
                 case 'spectrum_freq_start_name'
                     template = 'Spectrum start frequency';
                 case 'spectrum_freq_end_name'
@@ -2544,6 +2955,14 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
                     template = 'FFT Spectrum Inset';
                 case 'spectrum_inset_subplot_title'
                     template = '%.6g - %.6g Hz';
+                case 'spectrum_datatip_series'
+                    template = 'Spectrum';
+                case 'spectrum_inset_datatip_series'
+                    template = 'Spectrum inset';
+                case 'datatip_frequency'
+                    template = 'Frequency (Hz)';
+                case 'datatip_percent'
+                    template = 'Magnitude (%)';
                 case 'enable_zoom_checkbox'
                     template = 'Enable Waveform Zoom';
                 case 'zoom_panel_title'
