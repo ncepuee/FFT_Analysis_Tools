@@ -10,6 +10,7 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
         ControlPanel
         PlotPanel
         LoadButton
+        WorkspaceButton
         LanguageLabel
         LanguageDropDown
         PlotDetailLabel
@@ -73,6 +74,7 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
         CurrentFilePath char = ''
         MatData struct = struct()
         CsvData struct = struct()
+        WorkspaceData struct = struct()
         SignalCandidates struct = struct('label', {}, 'path', {}, 'source', {}, 'column', {})
         CurrentTime double = []
         CurrentWaveform double = []
@@ -118,6 +120,10 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
 
         function loadDataFileFromPath(app, filePath)
             app.loadDataFilePath(filePath);
+        end
+
+        function loadSignalsFromWorkspace(app)
+            app.loadWorkspaceSignals();
         end
 
         function setAppLanguage(app, languageValue)
@@ -229,7 +235,12 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
             app.LoadButton = uibutton(app.ControlGrid, 'Text', app.text('load_button'), ...
                 'ButtonPushedFcn', @(~, ~) app.loadDataFile());
             app.LoadButton.Layout.Row = 1;
-            app.LoadButton.Layout.Column = [1 2];
+            app.LoadButton.Layout.Column = 1;
+
+            app.WorkspaceButton = uibutton(app.ControlGrid, 'Text', app.text('load_workspace_button'), ...
+                'ButtonPushedFcn', @(~, ~) app.loadWorkspaceSignals());
+            app.WorkspaceButton.Layout.Row = 1;
+            app.WorkspaceButton.Layout.Column = 2;
 
             app.FileLabel = uilabel(app.ControlGrid, 'Text', app.text('loaded_none'), ...
                 'WordWrap', 'on');
@@ -631,6 +642,7 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
             [~, file, extension] = fileparts(fullPath);
             file = [file extension];
             app.LoadButton.Enable = 'off';
+            app.WorkspaceButton.Enable = 'off';
             app.AnalyzeButton.Enable = 'off';
             app.ExportButton.Enable = 'off';
             app.ExportFigureButton.Enable = 'off';
@@ -644,12 +656,13 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
             try
                 app.MatData = struct();
                 app.CsvData = struct();
+                app.WorkspaceData = struct();
                 if strcmpi(extension, '.csv')
                     app.CsvData = readScopeCsv(fullPath);
                     app.SignalCandidates = FourierAnalysisApp.csvSignalCandidates(app.CsvData);
                 else
                     app.MatData = load(fullPath);
-                    app.SignalCandidates = app.findSignalCandidates(app.MatData, "");
+                    app.SignalCandidates = app.findSignalCandidates(app.MatData, "", "mat");
                 end
             catch ME
                 app.showError('file_load_failed', ME.message);
@@ -697,6 +710,63 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
             app.restoreActionButtons();
         end
 
+        function loadWorkspaceSignals(app)
+            app.LoadButton.Enable = 'off';
+            app.WorkspaceButton.Enable = 'off';
+            app.AnalyzeButton.Enable = 'off';
+            app.ExportButton.Enable = 'off';
+            app.ExportFigureButton.Enable = 'off';
+            app.ExportMatButton.Enable = 'off';
+            app.InsertSpectrumInsetButton.Enable = 'off';
+            app.DeleteSpectrumInsetButton.Enable = 'off';
+            app.clearSpectrumInsetDisplay();
+            app.setStatus('workspace_loading');
+            drawnow('limitrate');
+            cleanup = onCleanup(@() app.restoreActionButtons());
+
+            try
+                [app.WorkspaceData, app.SignalCandidates] = FourierAnalysisApp.workspaceSignalCandidates();
+                app.MatData = struct();
+                app.CsvData = struct();
+            catch ME
+                app.showError('workspace_load_failed', ME.message);
+                return;
+            end
+
+            app.CurrentFileName = app.text('workspace_source');
+            app.CurrentFilePath = '';
+            app.FileLabel.Text = app.CurrentFileName;
+            app.HasResult = false;
+            app.Result = struct();
+            app.ResultTable.Data = cell(0, 2);
+            app.ExportButton.Enable = 'off';
+            app.ExportFigureButton.Enable = 'off';
+            app.ExportMatButton.Enable = 'off';
+            app.InsertSpectrumInsetButton.Enable = 'off';
+            app.DeleteSpectrumInsetButton.Enable = 'off';
+            app.clearSpectrumInsetDisplay();
+
+            if isempty(app.SignalCandidates)
+                app.SignalDropDown.Items = {app.text('no_supported_signal')};
+                app.SignalDropDown.Value = app.text('no_supported_signal');
+                app.AnalyzeButton.Enable = 'off';
+                app.CurrentTime = [];
+                app.CurrentWaveform = [];
+                app.setStatus('workspace_no_supported_signal');
+                app.resetPlots();
+                return;
+            end
+
+            labels = {app.SignalCandidates.label};
+            app.SignalDropDown.Items = labels;
+            app.SignalDropDown.Value = labels{1};
+            app.AnalyzeButton.Enable = 'on';
+            app.setStatus('workspace_loaded', numel(labels));
+            app.onSignalChanged();
+            clear cleanup;
+            app.restoreActionButtons();
+        end
+
         function onSignalChanged(app)
             if isempty(app.SignalCandidates)
                 return;
@@ -711,6 +781,8 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
                 candidate = app.SignalCandidates(index);
                 if strcmp(candidate.source, 'csv')
                     [time, waveform] = FourierAnalysisApp.readCsvSignal(app.CsvData, candidate.column);
+                elseif strcmp(candidate.source, 'workspace')
+                    [time, waveform] = app.readSignal(app.WorkspaceData, candidate.path);
                 else
                     [time, waveform] = app.readSignal(app.MatData, candidate.path);
                 end
@@ -1048,6 +1120,7 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
             app.ZoomPanel.Title = app.text('zoom_panel_title');
             app.ZoomEnableCheckBox.Text = app.text('enable_zoom_checkbox');
             app.LoadButton.Text = app.text('load_button');
+            app.WorkspaceButton.Text = app.text('load_workspace_button');
             app.LanguageLabel.Text = app.text('language');
             app.PlotDetailLabel.Text = app.text('plot_detail');
             app.PlotDetailDropDown.Items = app.plotDetailItems();
@@ -2457,6 +2530,7 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
 
         function restoreActionButtons(app)
             app.LoadButton.Enable = 'on';
+            app.WorkspaceButton.Enable = 'on';
             if app.hasLoadedCsv()
                 app.ExportMatButton.Enable = 'on';
             else
@@ -2587,9 +2661,13 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
                 case 'analysis_results'
                     template = '分析结果';
                 case 'load_button'
-                    template = '加载 MAT/CSV 文件';
+                    template = '加载文件';
+                case 'load_workspace_button'
+                    template = '识别工作区';
                 case 'loaded_none'
                     template = '未加载文件';
+                case 'workspace_source'
+                    template = 'MATLAB 工作区';
                 case 'language'
                     template = '语言';
                 case 'plot_detail'
@@ -2771,9 +2849,11 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
                 case 'table_value'
                     template = '数值';
                 case 'select_file'
-                    template = '请选择 MAT 文件，或示波器导出的 CSV 原始文件。';
+                    template = '请选择 MAT/CSV 文件，或直接识别 MATLAB 工作区变量。';
                 case 'loading_file'
                     template = '正在加载文件，请稍候...';
+                case 'workspace_loading'
+                    template = '正在扫描 MATLAB 工作区，请稍候...';
                 case 'data_files_filter'
                     template = '数据文件 (*.mat, *.csv)';
                 case 'mat_files_filter'
@@ -2791,9 +2871,13 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
                 case 'select_csv_channel_prompt'
                     template = '请选择要转换为 Simulink FFT Analyzer MAT 文件的一路信号：';
                 case 'no_supported_format'
-                    template = '未找到支持的数据格式。MAT 中的 struct 或 Simulink.SimulationOutput 内部变量需包含 time 和 signals.values；CSV 需包含 TIME 和至少一个波形列。';
+                    template = '未找到支持的数据格式。MAT 或工作区中的 struct/Simulink.SimulationOutput 需包含 time 和 signals.values；CSV 需包含 TIME 和至少一个波形列。';
                 case 'signals_found'
                     template = '已找到 %d 个可分析信号。';
+                case 'workspace_loaded'
+                    template = '已从 MATLAB 工作区识别 %d 个可分析信号。';
+                case 'workspace_no_supported_signal'
+                    template = 'MATLAB 工作区中未找到可分析的带时间信号。';
                 case 'csv_loaded'
                     template = '已识别 %d 个 CSV 波形；采样间隔 %.6g s；时间已平移 %.6g s 到从 0 开始。';
                 case 'load_select_signal'
@@ -2818,6 +2902,8 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
                     template = 'FFT 分析结果';
                 case 'file_load_failed'
                     template = '文件加载失败';
+                case 'workspace_load_failed'
+                    template = '工作区读取失败';
                 case 'link_open_failed'
                     template = '打开链接失败';
                 case 'signal_read_failed'
@@ -2878,9 +2964,13 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
                 case 'analysis_results'
                     template = 'Analysis Results';
                 case 'load_button'
-                    template = 'Load MAT/CSV File';
+                    template = 'Load File';
+                case 'load_workspace_button'
+                    template = 'Workspace';
                 case 'loaded_none'
                     template = 'No file loaded';
+                case 'workspace_source'
+                    template = 'MATLAB Workspace';
                 case 'language'
                     template = 'Language';
                 case 'plot_detail'
@@ -3062,9 +3152,11 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
                 case 'table_value'
                     template = 'Value';
                 case 'select_file'
-                    template = 'Select a MAT file or an oscilloscope CSV source file.';
+                    template = 'Select a MAT/CSV file or scan MATLAB workspace variables.';
                 case 'loading_file'
                     template = 'Loading file, please wait...';
+                case 'workspace_loading'
+                    template = 'Scanning MATLAB workspace, please wait...';
                 case 'data_files_filter'
                     template = 'Data Files (*.mat, *.csv)';
                 case 'mat_files_filter'
@@ -3082,9 +3174,13 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
                 case 'select_csv_channel_prompt'
                     template = 'Select one signal channel to convert to a Simulink FFT Analyzer MAT file:';
                 case 'no_supported_format'
-                    template = 'No supported data format was found. MAT struct variables or Simulink.SimulationOutput entries must contain time and signals.values; CSV files must contain TIME and at least one waveform column.';
+                    template = 'No supported data format was found. MAT/workspace structs or Simulink.SimulationOutput entries must contain time and signals.values; CSV files must contain TIME and at least one waveform column.';
                 case 'signals_found'
                     template = 'Found %d analyzable signal(s).';
+                case 'workspace_loaded'
+                    template = 'Recognized %d analyzable signal(s) from MATLAB workspace.';
+                case 'workspace_no_supported_signal'
+                    template = 'No analyzable time-based signal was found in MATLAB workspace.';
                 case 'csv_loaded'
                     template = 'Recognized %d CSV waveform(s); sample interval %.6g s; shifted time by %.6g s so it starts at 0.';
                 case 'load_select_signal'
@@ -3109,6 +3205,8 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
                     template = 'FFT Analysis Result';
                 case 'file_load_failed'
                     template = 'File Load Failed';
+                case 'workspace_load_failed'
+                    template = 'Workspace Load Failed';
                 case 'link_open_failed'
                     template = 'Open Link Failed';
                 case 'signal_read_failed'
@@ -3160,7 +3258,40 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
             end
         end
 
-        function candidates = findSignalCandidates(data, prefix)
+        function [data, candidates] = workspaceSignalCandidates()
+            data = struct();
+            candidates = struct('label', {}, 'path', {}, 'source', {}, 'column', {});
+            names = evalin('base', 'who');
+
+            for k = 1:numel(names)
+                name = names{k};
+                try
+                    value = evalin('base', name);
+                catch
+                    continue;
+                end
+
+                if FourierAnalysisApp.isSupportedSignal(value)
+                    newCandidates = struct('label', name, 'path', name, ...
+                        'source', 'workspace', 'column', NaN);
+                elseif isscalar(value) && (isstruct(value) || FourierAnalysisApp.isSimulationOutputLike(value))
+                    newCandidates = FourierAnalysisApp.findSignalCandidates(value, string(name), "workspace");
+                else
+                    newCandidates = struct('label', {}, 'path', {}, 'source', {}, 'column', {});
+                end
+
+                if ~isempty(newCandidates)
+                    data.(name) = value;
+                    candidates = [candidates, newCandidates]; %#ok<AGROW>
+                end
+            end
+        end
+
+        function candidates = findSignalCandidates(data, prefix, source)
+            if nargin < 3
+                source = "mat";
+            end
+
             candidates = struct('label', {}, 'path', {}, 'source', {}, 'column', {});
             if ~(isstruct(data) || FourierAnalysisApp.isSimulationOutputLike(data)) || ~isscalar(data)
                 return;
@@ -3188,10 +3319,10 @@ classdef FourierAnalysisApp < matlab.apps.AppBase
                 if FourierAnalysisApp.isSupportedSignal(value)
                     candidates(end+1).label = char(path); %#ok<AGROW>
                     candidates(end).path = char(path);
-                    candidates(end).source = 'mat';
+                    candidates(end).source = char(source);
                     candidates(end).column = NaN;
                 elseif isscalar(value) && (isstruct(value) || FourierAnalysisApp.isSimulationOutputLike(value))
-                    nested = FourierAnalysisApp.findSignalCandidates(value, path);
+                    nested = FourierAnalysisApp.findSignalCandidates(value, path, source);
                     candidates = [candidates, nested]; %#ok<AGROW>
                 end
             end
