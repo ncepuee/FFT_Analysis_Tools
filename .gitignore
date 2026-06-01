@@ -12,6 +12,7 @@ slprj/
 # Data files (large binaries)
 *.mat
 *.zip
+*.csv
 
 # OS
 .DS_Store
@@ -22,6 +23,9 @@ Thumbs.db
 
 # Build output
 dist/
+
+# Archived scripts (local only)
+Achieve/
 
 # Validation output
 validation_outputs/
