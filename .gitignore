@@ -21,6 +21,9 @@ Thumbs.db
 # Claude Code local settings
 .claude/settings.local.json
 
+# Machine-specific MCP configuration
+.mcp.json
+
 # Build output
 dist/
 

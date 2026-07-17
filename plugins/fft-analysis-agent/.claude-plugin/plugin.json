@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
+  "name": "fft-analysis-agent",
+  "displayName": "FFT Analysis Agent",
+  "version": "0.1.0",
+  "description": "Analyze MATLAB and oscilloscope signals with the FFT Analysis Tools API, including harmonics and THD.",
+  "author": {
+    "name": "Zhenbin Huang",
+    "url": "https://github.com/ncepuee"
+  },
+  "homepage": "https://github.com/ncepuee/FFT_Analysis_Tools",
+  "repository": "https://github.com/ncepuee/FFT_Analysis_Tools",
+  "license": "MIT",
+  "keywords": ["matlab", "fft", "thd", "harmonics", "signal-analysis"]
+}

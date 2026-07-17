@@ -1,0 +1,14 @@
+{
+  "name": "fft-analysis-tools",
+  "owner": {
+    "name": "Zhenbin Huang"
+  },
+  "description": "Agent plugins for MATLAB FFT and THD analysis workflows.",
+  "plugins": [
+    {
+      "name": "fft-analysis-agent",
+      "source": "./plugins/fft-analysis-agent",
+      "description": "Analyze MAT and oscilloscope CSV signals with the repository's FFT and THD implementation."
+    }
+  ]
+}

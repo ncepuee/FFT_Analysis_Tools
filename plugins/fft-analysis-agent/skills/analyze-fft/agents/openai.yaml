@@ -1,0 +1,9 @@
+interface:
+  display_name: "FFT / THD Analysis"
+  short_description: "Analyze MATLAB and oscilloscope signals"
+  default_prompt: "Use $analyze-fft to analyze a signal file and explain its FFT and THD results."
+dependencies:
+  tools:
+    - type: "mcp"
+      value: "matlab"
+      description: "MATLAB MCP Server from the MATLAB Agentic Toolkit"

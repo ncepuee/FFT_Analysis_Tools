@@ -33,6 +33,20 @@ runFourierAnalysisApp
 FourierAnalysisApp
 ```
 
+### Agent API
+
+Codex and Claude Code can run the same analysis without opening the GUI:
+
+```matlab
+out = fftAnalyzeFile("capture.csv", Signal="CH1", ...
+    FundamentalFrequency=50, NumCycles=10, ...
+    MaxDisplayFrequency=3000, ThdMethod="matlab");
+disp(out.summary)
+disp(out.harmonics)
+```
+
+A cross-client plugin is provided in `plugins/fft-analysis-agent`. It contains a shared `analyze-fft` skill and a Claude Code `fft-analyst` custom agent. See the plugin README for local installation commands.
+
 ### After editing / 修改代码后
 
 ```matlab
@@ -84,6 +98,7 @@ THD is computed using RMS definition: `THD = sqrt(sum(Vh_rms.^2)) / V1_rms`
 
 ```
 FourierAnalysisApp.m       Main GUI application / 主界面
+fftAnalyzeFile.m           Non-GUI file API for agents / Agent 无界面文件接口
 fftAnalyzeSignal.m         FFT computation core / FFT 计算核心
 readScopeCsv.m             Oscilloscope CSV parser / 示波器 CSV 解析器
 runFourierAnalysisApp.m    Launch wrapper / 启动入口

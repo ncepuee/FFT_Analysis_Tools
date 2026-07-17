@@ -1,0 +1,24 @@
+{
+  "name": "fft-analysis-agent",
+  "version": "0.1.0",
+  "description": "Analyze MATLAB and oscilloscope signals with the FFT Analysis Tools API, including harmonics and THD.",
+  "author": {
+    "name": "Zhenbin Huang",
+    "url": "https://github.com/ncepuee"
+  },
+  "homepage": "https://github.com/ncepuee/FFT_Analysis_Tools",
+  "repository": "https://github.com/ncepuee/FFT_Analysis_Tools",
+  "license": "MIT",
+  "keywords": ["matlab", "fft", "thd", "harmonics", "signal-analysis"],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "FFT Analysis Agent",
+    "shortDescription": "Analyze signal FFT, harmonics, and THD in MATLAB.",
+    "longDescription": "Runs the FFT Analysis Tools non-GUI MATLAB API for MAT files, oscilloscope CSV files, and workspace signals, then explains fundamental, harmonic, and THD results.",
+    "developerName": "Zhenbin Huang",
+    "category": "DeveloperTools",
+    "capabilities": ["Read", "Execute"],
+    "websiteURL": "https://github.com/ncepuee/FFT_Analysis_Tools",
+    "defaultPrompt": "Analyze a MAT or oscilloscope CSV signal and explain its FFT, harmonics, and THD."
+  }
+}

@@ -114,7 +114,10 @@ function result = fftAnalyzeSignal(time, waveform, f0, numCycles, startTime, max
     fundamentalRms = fundamentalMagnitude / sqrt(2);
 
     matlabThdMagnitude = magnitude;
-    matlabThdMagnitude(freqs <= f0) = 0;
+    % Exclude DC through the detected fundamental bin by index. Comparing
+    % freqs <= f0 can retain the fundamental when floating-point rounding
+    % makes its bin frequency infinitesimally greater than f0.
+    matlabThdMagnitude(1:baseIndex) = 0;
     matlabThdMagnitude(freqs > thdMaxFrequency) = 0;
     matlabOriginalThd = sqrt(max(sum(matlabThdMagnitude.^2), 0)) / fundamentalMagnitude;
 
