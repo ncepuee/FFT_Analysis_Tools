@@ -19,6 +19,9 @@
     "category": "DeveloperTools",
     "capabilities": ["Read", "Execute"],
     "websiteURL": "https://github.com/ncepuee/FFT_Analysis_Tools",
+    "brandColor": "#FF8A00",
+    "composerIcon": "./assets/FFTAnalysisLogo.png",
+    "logo": "./assets/FFTAnalysisLogo.png",
     "defaultPrompt": "Analyze a MAT or oscilloscope CSV signal and explain its FFT, harmonics, and THD."
   }
 }
