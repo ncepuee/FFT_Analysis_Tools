@@ -5,7 +5,7 @@
 </p>
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/ncepuee/FFT_Analysis_Tools/master/resources/FFTAnalysisSplash.png" alt="FFT Analysis Tools" width="320">
+  <img src="https://raw.githubusercontent.com/ncepuee/FFT_Analysis_Tools/master/resources/FFTAnalysisLogo.png" alt="FFT Analysis Tools logo" width="280">
 </p>
 
 <p align="center"><strong>面向 MATLAB 的 FFT、谐波和 THD 图形界面、自动化 API 与 Agent 插件。</strong></p>

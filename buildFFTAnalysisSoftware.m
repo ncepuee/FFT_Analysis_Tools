@@ -21,6 +21,7 @@ function results = buildFFTAnalysisSoftware()
         fullfile(projectRoot, 'fftAnalyzeSignal.m')
         fullfile(projectRoot, 'readScopeCsv.m')
         splashFile
+        fullfile(projectRoot, 'resources', 'FFTAnalysisLogo.png')
         fullfile(projectRoot, 'resources', 'authorLinks.html')
         fullfile(projectRoot, 'resources', 'aboutAuthor.html')
         fullfile(projectRoot, 'UI_README.md')

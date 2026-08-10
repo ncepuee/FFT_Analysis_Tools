@@ -5,7 +5,7 @@
 </p>
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/ncepuee/FFT_Analysis_Tools/master/resources/FFTAnalysisSplash.png" alt="FFT Analysis Tools" width="320">
+  <img src="https://raw.githubusercontent.com/ncepuee/FFT_Analysis_Tools/master/resources/FFTAnalysisLogo.png" alt="FFT Analysis Tools logo" width="280">
 </p>
 
 <p align="center"><strong>MATLAB GUI, automation API, and Agent plugin for FFT, harmonics, and THD analysis.</strong></p>
