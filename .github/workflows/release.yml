@@ -1,0 +1,117 @@
+name: Multi-platform MATLAB Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build installer (${{ matrix.platform }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: windows
+            os: windows-latest
+          - platform: macos
+            os: macos-latest
+          - platform: linux
+            os: ubuntu-latest
+
+    env:
+      MLM_LICENSE_TOKEN: ${{ secrets.MLM_LICENSE_TOKEN }}
+
+    steps:
+      - name: Check out tagged source
+        uses: actions/checkout@v4
+
+      - name: Check MATLAB Compiler license token
+        shell: bash
+        run: |
+          if [ -z "${MLM_LICENSE_TOKEN:-}" ]; then
+            echo "::error::Configure the MLM_LICENSE_TOKEN repository secret before creating a compiled release."
+            exit 1
+          fi
+
+      - name: Set up MATLAB and MATLAB Compiler
+        uses: matlab-actions/setup-matlab@v3
+        with:
+          release: R2024b
+          products: MATLAB_Compiler
+          cache: true
+
+      - name: Build native installer
+        uses: matlab-actions/run-command@v3
+        with:
+          command: buildFFTAnalysisSoftware
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Archive installer directory
+        run: python scripts/archive_installer.py --platform ${{ matrix.platform }}
+
+      - name: Extract Windows installer executable
+        if: matrix.platform == 'windows'
+        shell: pwsh
+        run: |
+          $installer = Get-ChildItem -LiteralPath "dist/FFTAnalysisAppInstaller-windows" -Recurse -File -Filter "FFTAnalysisAppInstaller.exe" | Select-Object -First 1
+          if ($null -eq $installer) {
+            throw "FFTAnalysisAppInstaller.exe was not found in the Windows installer output."
+          }
+          Copy-Item -LiteralPath $installer.FullName -Destination "dist/FFTAnalysisAppInstaller.exe" -Force
+
+      - name: Upload Windows installer
+        if: matrix.platform == 'windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: installer-windows
+          path: dist/FFTAnalysisAppInstaller.exe
+          if-no-files-found: error
+
+      - name: Upload macOS or Linux installer
+        if: matrix.platform != 'windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: installer-${{ matrix.platform }}
+          path: dist/FFTAnalysisAppInstaller-${{ matrix.platform }}.zip
+          if-no-files-found: error
+
+  publish:
+    name: Publish GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download platform installers
+        uses: actions/download-artifact@v4
+        with:
+          path: release-assets
+          pattern: installer-*
+          merge-multiple: true
+
+      - name: Publish bilingual release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          files: |
+            release-assets/FFTAnalysisAppInstaller.exe
+            release-assets/*.zip
+          generate_release_notes: true
+          body: |
+            ## FFT Analysis Tools ${{ github.ref_name }}
+
+            Native MATLAB Compiler packages are provided for Windows, macOS, and Linux.
+            The source workflow still requires MATLAB; compiled applications require the matching MATLAB Runtime R2024b.
+            The Windows asset is `FFTAnalysisAppInstaller.exe`; macOS and Linux assets are platform archives.
+
+            本版本提供 Windows、macOS 和 Linux 原生 MATLAB Compiler 安装包。
+            源码方式需要安装 MATLAB；编译应用需要匹配的 MATLAB Runtime R2024b。
+            Windows 资产为 `FFTAnalysisAppInstaller.exe`，macOS 和 Linux 资产为对应平台压缩包。
