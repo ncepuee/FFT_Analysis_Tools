@@ -22,12 +22,12 @@
   <a href="https://github.com/ncepuee/FFT_Analysis_Tools/blob/master/LICENSE"><img alt="MIT 许可证" src="https://img.shields.io/github/license/ncepuee/FFT_Analysis_Tools?color=blue"></a>
   <img alt="MATLAB R2020b+" src="https://img.shields.io/badge/MATLAB-R2020b%2B-orange?logo=mathworks&logoColor=white">
   <img alt="Windows macOS Linux" src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-0078D4">
-  <a href="https://github.com/ncepuee/FFT_Analysis_Tools/releases/tag/v2.1.0"><img alt="Agent 插件" src="https://img.shields.io/badge/Agent_plugin-v2.1.0-FF8A00"></a>
+  <a href="https://github.com/ncepuee/FFT_Analysis_Tools/releases/tag/v2.2.2"><img alt="Agent 插件" src="https://img.shields.io/badge/Agent_plugin-v2.2.2-FF8A00"></a>
 </p>
 
 FFT Analysis Tools 是一个面向电力电子和示波器波形分析的本地 MATLAB 工具包。你可以使用 GUI 完成交互式分析，使用无界面 API 批量处理，也可以通过 Codex 或 Claude Code 中的 Agent 插件进行自然语言分析。
 
-> **当前版本：** [v2.1.0](https://github.com/ncepuee/FFT_Analysis_Tools/releases/tag/v2.1.0)，新增 `fftAnalyzeFile`、跨客户端 `analyze-fft` Skill，以及 Claude Code 的 `fft-analyst` Agent。MATLAB 源码方式支持跨平台运行；编译安装包则按目标操作系统分别构建。
+> **当前版本：** [v2.2.2](https://github.com/ncepuee/FFT_Analysis_Tools/releases/tag/v2.2.2)，同时提供源代码归档，以及 Windows、macOS 和 Linux 原生安装包。MATLAB 源码方式支持跨平台运行；编译安装包则按目标操作系统分别构建。
 
 ## 核心能力
 
@@ -108,13 +108,13 @@ runFourierAnalysisApp
 
 ### 方式二：安装编译应用
 
-从 [Releases](https://github.com/ncepuee/FFT_Analysis_Tools/releases) 下载对应平台的安装包：
+从 [v2.2.2 Release](https://github.com/ncepuee/FFT_Analysis_Tools/releases/tag/v2.2.2) 下载对应平台的安装包：
 
-- Windows：`FFTAnalysisAppInstaller.exe`。
-- macOS：`FFTAnalysisAppInstaller-macos.zip`。
-- Linux：`FFTAnalysisAppInstaller-linux.zip`。
+- Windows x64：[`FFTAnalysisAppInstaller-windows-x64.exe`](https://github.com/ncepuee/FFT_Analysis_Tools/releases/download/v2.2.2/FFTAnalysisAppInstaller-windows-x64.exe)。
+- macOS：[`FFTAnalysisAppInstaller-macos.dmg`](https://github.com/ncepuee/FFT_Analysis_Tools/releases/download/v2.2.2/FFTAnalysisAppInstaller-macos.dmg)。
+- Linux：[`FFTAnalysisAppInstaller-linux.install`](https://github.com/ncepuee/FFT_Analysis_Tools/releases/download/v2.2.2/FFTAnalysisAppInstaller-linux.install)。
 
-解压后按对应平台的安装程序说明操作。没有 MATLAB 的电脑需要 MATLAB Runtime R2024b。这些是按系统分别构建的安装包，不是一个通用可执行文件。
+没有 MATLAB 的电脑需要 MATLAB Runtime R2024b。这些是按系统分别构建的安装包，不是一个通用可执行文件。Release 页面还提供与标签对应的源代码 ZIP 和 TAR.GZ 归档。
 
 ### 方式三：安装 Agent 插件
 
@@ -130,7 +130,7 @@ codex plugin add fft-analysis-agent@personal
 从 GitHub 标签版本安装：
 
 ~~~powershell
-codex plugin marketplace add ncepuee/FFT_Analysis_Tools --ref v2.1.0
+codex plugin marketplace add ncepuee/FFT_Analysis_Tools --ref v2.2.2
 codex plugin add fft-analysis-agent@personal
 ~~~
 
@@ -148,7 +148,7 @@ claude plugin install fft-analysis-agent@fft-analysis-tools
 从 GitHub 标签版本安装：
 
 ~~~powershell
-claude plugin marketplace add ncepuee/FFT_Analysis_Tools@v2.1.0
+claude plugin marketplace add ncepuee/FFT_Analysis_Tools@v2.2.2
 claude plugin install fft-analysis-agent@fft-analysis-tools
 ~~~
 
@@ -265,12 +265,14 @@ buildFFTAnalysisSoftware
 packageFourierAnalysisApp
 ~~~
 
-构建产物写入 `dist/`，该目录已加入版本控制忽略列表。构建脚本会自动选择当前系统的原生编译入口，并生成带平台名称的安装目录。推送 `v*` 标签后，`.github/workflows/release.yml` 会创建 GitHub Release；该流程需要仓库 Secret `MLM_LICENSE_TOKEN`，因为 MATLAB Compiler 属于转换产品。
+构建产物写入 `dist/`，该目录已加入版本控制忽略列表。构建脚本会自动选择当前系统的原生编译入口，并生成带平台名称的安装目录。发布流程会将其转换为 Windows `.exe`、macOS `.dmg` 和 Linux `.install` 文件。推送 `v*` 标签后，`.github/workflows/release.yml` 会创建 GitHub Release；该流程需要仓库 Secret `MLM_LICENSE_TOKEN`，因为 MATLAB Compiler 属于转换产品。
 
 ## CI 与多平台发布
 
 - `.github/workflows/ci.yml` 会在 Push 和 Pull Request 时，在 Windows、macOS、Linux 上运行 MATLAB 单元测试。
 - `.github/workflows/release.yml` 会在推送 `v*` 标签时，在三种 GitHub Runner 上分别生成原生安装包。
+- 每个 Release 提供 `FFTAnalysisAppInstaller-windows-x64.exe`、`FFTAnalysisAppInstaller-macos.dmg` 和 `FFTAnalysisAppInstaller-linux.install`。
+- GitHub 还会根据 Release 标签自动提供源代码 ZIP 和 TAR.GZ 归档。
 - 安装了 MATLAB 后，MATLAB 源码和 API 可在三种系统上运行。
 - 编译应用绑定构建时的操作系统，不能交叉编译成一个通用安装包。
 - Release 构建使用 MATLAB R2024b，并需要仓库 Secret `MLM_LICENSE_TOKEN`。
@@ -296,6 +298,7 @@ FFT Analysis Tools 是独立项目，不是 MathWorks、Simulink、Codex 或 Cla
 ## 发布与文档
 
 - [最新版本](https://github.com/ncepuee/FFT_Analysis_Tools/releases/latest)
+- [v2.2.2 Release](https://github.com/ncepuee/FFT_Analysis_Tools/releases/tag/v2.2.2)
 - [v2.1.0 发布说明](RELEASE_NOTES_v2.1.0.md)
 - [GUI 详细文档](UI_README.md)
 - [Agent 插件文档](plugins/fft-analysis-agent/README.md)

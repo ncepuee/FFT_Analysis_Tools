@@ -4,6 +4,7 @@ on:
   push:
     tags:
       - "v*"
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -50,15 +51,7 @@ jobs:
         with:
           command: buildFFTAnalysisSoftware
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.x"
-
-      - name: Archive installer directory
-        run: python scripts/archive_installer.py --platform ${{ matrix.platform }}
-
-      - name: Extract Windows installer executable
+      - name: Package Windows installer
         if: matrix.platform == 'windows'
         shell: pwsh
         run: |
@@ -66,22 +59,58 @@ jobs:
           if ($null -eq $installer) {
             throw "FFTAnalysisAppInstaller.exe was not found in the Windows installer output."
           }
-          Copy-Item -LiteralPath $installer.FullName -Destination "dist/FFTAnalysisAppInstaller.exe" -Force
+          Copy-Item -LiteralPath $installer.FullName -Destination "dist/FFTAnalysisAppInstaller-windows-x64.exe" -Force
 
       - name: Upload Windows installer
         if: matrix.platform == 'windows'
         uses: actions/upload-artifact@v4
         with:
           name: installer-windows
-          path: dist/FFTAnalysisAppInstaller.exe
+          path: dist/FFTAnalysisAppInstaller-windows-x64.exe
           if-no-files-found: error
 
-      - name: Upload macOS or Linux installer
-        if: matrix.platform != 'windows'
+      - name: Package macOS disk image
+        if: matrix.platform == 'macos'
+        shell: bash
+        run: |
+          app=$(find "dist/FFTAnalysisAppInstaller-macos" -type d -name "*.app" -print -quit)
+          if [ -z "$app" ]; then
+            echo "No macOS installer app bundle was found."
+            exit 1
+          fi
+          hdiutil create \
+            -volname "FFT Analysis Tools" \
+            -srcfolder "$app" \
+            -ov \
+            -format UDZO \
+            "dist/FFTAnalysisAppInstaller-macos.dmg"
+
+      - name: Upload macOS installer
+        if: matrix.platform == 'macos'
         uses: actions/upload-artifact@v4
         with:
-          name: installer-${{ matrix.platform }}
-          path: dist/FFTAnalysisAppInstaller-${{ matrix.platform }}.zip
+          name: installer-macos
+          path: dist/FFTAnalysisAppInstaller-macos.dmg
+          if-no-files-found: error
+
+      - name: Package Linux installer
+        if: matrix.platform == 'linux'
+        shell: bash
+        run: |
+          installer=$(find "dist/FFTAnalysisAppInstaller-linux" -type f -name "*.install" -print -quit)
+          if [ -z "$installer" ]; then
+            echo "No Linux installer file was found."
+            exit 1
+          fi
+          cp "$installer" "dist/FFTAnalysisAppInstaller-linux.install"
+          chmod +x "dist/FFTAnalysisAppInstaller-linux.install"
+
+      - name: Upload Linux installer
+        if: matrix.platform == 'linux'
+        uses: actions/upload-artifact@v4
+        with:
+          name: installer-linux
+          path: dist/FFTAnalysisAppInstaller-linux.install
           if-no-files-found: error
 
   publish:
@@ -97,21 +126,41 @@ jobs:
           pattern: installer-*
           merge-multiple: true
 
+      - name: Remove legacy archive assets
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for asset in FFTAnalysisAppInstaller-macos.zip FFTAnalysisAppInstaller-linux.zip; do
+            gh release delete-asset "${GITHUB_REF_NAME}" "$asset" \
+              --repo "${GITHUB_REPOSITORY}" \
+              --yes || true
+          done
+
       - name: Publish bilingual release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
           files: |
-            release-assets/FFTAnalysisAppInstaller.exe
-            release-assets/*.zip
+            release-assets/FFTAnalysisAppInstaller-windows-x64.exe
+            release-assets/FFTAnalysisAppInstaller-macos.dmg
+            release-assets/FFTAnalysisAppInstaller-linux.install
           generate_release_notes: true
           body: |
             ## FFT Analysis Tools ${{ github.ref_name }}
 
             Native MATLAB Compiler packages are provided for Windows, macOS, and Linux.
             The source workflow still requires MATLAB; compiled applications require the matching MATLAB Runtime R2024b.
-            The Windows asset is `FFTAnalysisAppInstaller.exe`; macOS and Linux assets are platform archives.
+            The Windows asset is `FFTAnalysisAppInstaller-windows-x64.exe`; the macOS asset is `FFTAnalysisAppInstaller-macos.dmg`; the Linux asset is `FFTAnalysisAppInstaller-linux.install`.
+
+            Source code is available from the tag archives:
+            - [Source code (ZIP)](${{ github.server_url }}/${{ github.repository }}/archive/refs/tags/${{ github.ref_name }}.zip)
+            - [Source code (TAR.GZ)](${{ github.server_url }}/${{ github.repository }}/archive/refs/tags/${{ github.ref_name }}.tar.gz)
 
             本版本提供 Windows、macOS 和 Linux 原生 MATLAB Compiler 安装包。
             源码方式需要安装 MATLAB；编译应用需要匹配的 MATLAB Runtime R2024b。
-            Windows 资产为 `FFTAnalysisAppInstaller.exe`，macOS 和 Linux 资产为对应平台压缩包。
+            Windows 资产为 `FFTAnalysisAppInstaller-windows-x64.exe`，macOS 资产为 `FFTAnalysisAppInstaller-macos.dmg`，Linux 资产为 `FFTAnalysisAppInstaller-linux.install`。
+
+            源代码可通过标签归档下载：
+            - [源代码（ZIP）](${{ github.server_url }}/${{ github.repository }}/archive/refs/tags/${{ github.ref_name }}.zip)
+            - [源代码（TAR.GZ）](${{ github.server_url }}/${{ github.repository }}/archive/refs/tags/${{ github.ref_name }}.tar.gz)

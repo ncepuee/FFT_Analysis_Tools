@@ -22,12 +22,12 @@
   <a href="https://github.com/ncepuee/FFT_Analysis_Tools/blob/master/LICENSE"><img alt="MIT license" src="https://img.shields.io/github/license/ncepuee/FFT_Analysis_Tools?color=blue"></a>
   <img alt="MATLAB R2020b+" src="https://img.shields.io/badge/MATLAB-R2020b%2B-orange?logo=mathworks">
   <img alt="Windows macOS Linux" src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-0078D4">
-  <a href="https://github.com/ncepuee/FFT_Analysis_Tools/releases/tag/v2.1.0"><img alt="Agent plugin" src="https://img.shields.io/badge/Agent_plugin-v2.1.0-FF8A00"></a>
+  <a href="https://github.com/ncepuee/FFT_Analysis_Tools/releases/tag/v2.2.2"><img alt="Agent plugin" src="https://img.shields.io/badge/Agent_plugin-v2.2.2-FF8A00"></a>
 </p>
 
 FFT Analysis Tools is a local-first MATLAB toolkit for power-electronics and oscilloscope waveform analysis. Use the graphical application for interactive work, the non-GUI API for reproducible automation, or the bundled Agent plugin from Codex and Claude Code.
 
-> **Current release:** [v2.1.0](https://github.com/ncepuee/FFT_Analysis_Tools/releases/tag/v2.1.0) adds `fftAnalyzeFile`, a shared `analyze-fft` Skill, and the `fft-analyst` Claude Code agent. The MATLAB source workflow is cross-platform; compiled packages are built natively for each operating system.
+> **Current release:** [v2.2.2](https://github.com/ncepuee/FFT_Analysis_Tools/releases/tag/v2.2.2) provides source-code archives and native Windows, macOS, and Linux installers. The MATLAB source workflow is cross-platform; compiled packages are built natively for each operating system.
 
 ## Core Capabilities
 
@@ -108,13 +108,13 @@ runFourierAnalysisApp
 
 ### Option 2: Install a compiled application
 
-Download the matching package from [Releases](https://github.com/ncepuee/FFT_Analysis_Tools/releases):
+Download the matching package from the [v2.2.2 Release](https://github.com/ncepuee/FFT_Analysis_Tools/releases/tag/v2.2.2):
 
-- `FFTAnalysisAppInstaller.exe` for Windows.
-- `FFTAnalysisAppInstaller-macos.zip` for macOS.
-- `FFTAnalysisAppInstaller-linux.zip` for Linux.
+- [`FFTAnalysisAppInstaller-windows-x64.exe`](https://github.com/ncepuee/FFT_Analysis_Tools/releases/download/v2.2.2/FFTAnalysisAppInstaller-windows-x64.exe) for Windows x64.
+- [`FFTAnalysisAppInstaller-macos.dmg`](https://github.com/ncepuee/FFT_Analysis_Tools/releases/download/v2.2.2/FFTAnalysisAppInstaller-macos.dmg) for macOS.
+- [`FFTAnalysisAppInstaller-linux.install`](https://github.com/ncepuee/FFT_Analysis_Tools/releases/download/v2.2.2/FFTAnalysisAppInstaller-linux.install) for Linux.
 
-Extract the package and follow the platform installer instructions. Machines without MATLAB need MATLAB Runtime R2024b. These are native packages, not a single universal executable.
+Machines without MATLAB need MATLAB Runtime R2024b. These are native packages, not a single universal executable. The release page also provides the source code as ZIP and TAR.GZ archives for the corresponding tag.
 
 ### Option 3: Install the Agent plugin
 
@@ -130,7 +130,7 @@ codex plugin add fft-analysis-agent@personal
 From the tagged release:
 
 ~~~powershell
-codex plugin marketplace add ncepuee/FFT_Analysis_Tools --ref v2.1.0
+codex plugin marketplace add ncepuee/FFT_Analysis_Tools --ref v2.2.2
 codex plugin add fft-analysis-agent@personal
 ~~~
 
@@ -148,7 +148,7 @@ claude plugin install fft-analysis-agent@fft-analysis-tools
 For a tagged release:
 
 ~~~powershell
-claude plugin marketplace add ncepuee/FFT_Analysis_Tools@v2.1.0
+claude plugin marketplace add ncepuee/FFT_Analysis_Tools@v2.2.2
 claude plugin install fft-analysis-agent@fft-analysis-tools
 ~~~
 
@@ -265,12 +265,14 @@ To package the app for MATLAB's Apps panel:
 packageFourierAnalysisApp
 ~~~
 
-Build outputs are written to `dist/` and excluded from version control. The build script selects the native compiler entry point and writes a platform-specific installer directory. GitHub Release packages are created by `.github/workflows/release.yml` when a `v*` tag is pushed. That workflow requires the repository secret `MLM_LICENSE_TOKEN` because MATLAB Compiler is a transformation product.
+Build outputs are written to `dist/` and excluded from version control. The build script selects the native compiler entry point and writes a platform-specific installer directory. The release workflow converts those outputs into a Windows `.exe`, a macOS `.dmg`, and a Linux `.install` file. GitHub Release packages are created by `.github/workflows/release.yml` when a `v*` tag is pushed. That workflow requires the repository secret `MLM_LICENSE_TOKEN` because MATLAB Compiler is a transformation product.
 
 ## CI and Multi-platform Releases
 
 - `.github/workflows/ci.yml` runs the MATLAB unit tests on Windows, macOS, and Linux for pushes and pull requests.
 - `.github/workflows/release.yml` builds native packages on all three GitHub-hosted operating systems when a `v*` tag is pushed.
+- Each release provides `FFTAnalysisAppInstaller-windows-x64.exe`, `FFTAnalysisAppInstaller-macos.dmg`, and `FFTAnalysisAppInstaller-linux.install`.
+- GitHub also provides source-code ZIP and TAR.GZ archives generated from the release tag.
 - MATLAB source and API code are portable across the three operating systems when MATLAB is installed.
 - A compiled application is tied to the operating system used for the build; it cannot be cross-compiled into one universal package.
 - Release builds use MATLAB R2024b and require the repository secret `MLM_LICENSE_TOKEN`.
@@ -296,6 +298,7 @@ FFT Analysis Tools is an independent project and is not an official MathWorks, S
 ## Releases and Documentation
 
 - [Latest Release](https://github.com/ncepuee/FFT_Analysis_Tools/releases/latest)
+- [v2.2.2 Release](https://github.com/ncepuee/FFT_Analysis_Tools/releases/tag/v2.2.2)
 - [v2.1.0 Release Notes](RELEASE_NOTES_v2.1.0.md)
 - [Detailed GUI Documentation](UI_README.md)
 - [Agent Plugin Documentation](plugins/fft-analysis-agent/README.md)
