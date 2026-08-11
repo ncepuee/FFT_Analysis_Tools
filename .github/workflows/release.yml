@@ -131,7 +131,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          for asset in FFTAnalysisAppInstaller-macos.zip FFTAnalysisAppInstaller-linux.zip; do
+          for asset in FFTAnalysisAppInstaller.exe FFTAnalysisAppInstaller-macos.zip FFTAnalysisAppInstaller-linux.zip; do
             gh release delete-asset "${GITHUB_REF_NAME}" "$asset" \
               --repo "${GITHUB_REPOSITORY}" \
               --yes || true
