@@ -25,7 +25,7 @@ function results = buildFFTAnalysisSoftware()
         fullfile(projectRoot, 'resources', 'authorLinks.html')
         fullfile(projectRoot, 'resources', 'aboutAuthor.html')
         fullfile(projectRoot, 'UI_README.md')
-        fullfile(projectRoot, 'readme.md')
+        fullfile(projectRoot, 'README.md')
         fullfile(projectRoot, 'README.zh-CN.md')
         };
 
